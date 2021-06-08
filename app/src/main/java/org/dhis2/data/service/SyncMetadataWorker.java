@@ -3,42 +3,48 @@ package org.dhis2.data.service;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Build;
-import android.util.Log;
 
-import com.google.firebase.perf.metrics.AddTrace;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.work.Data;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
 import org.dhis2.App;
 import org.dhis2.R;
+import org.dhis2.data.prefs.PreferenceProvider;
 import org.dhis2.utils.Constants;
+import org.dhis2.utils.D2ErrorUtils;
 import org.dhis2.utils.DateUtils;
+import org.dhis2.utils.NetworkUtils;
+import org.hisp.dhis.android.core.maintenance.D2Error;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Calendar;
-import java.util.Objects;
 
 import javax.inject.Inject;
 
-import androidx.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import androidx.work.Worker;
-import androidx.work.WorkerParameters;
 import timber.log.Timber;
 
-/**
- * QUADRAM. Created by ppajuelo on 23/10/2018.
- */
+import static org.dhis2.data.service.SyncOutputKt.METADATA_MESSAGE;
+import static org.dhis2.data.service.SyncOutputKt.METADATA_STATE;
+import static org.dhis2.utils.analytics.AnalyticsConstants.METADATA_TIME;
 
 public class SyncMetadataWorker extends Worker {
 
-    private final static String metadata_channel = "sync_metadata_notification";
-    private final static int SYNC_METADATA_ID = 26061987;
+    private static final String METADATA_CHANNEL = "sync_metadata_notification";
+    private static final int SYNC_METADATA_ID = 26061987;
 
     @Inject
     SyncPresenter presenter;
+
+    @Inject
+    PreferenceProvider prefs;
 
     public SyncMetadataWorker(
             @NonNull Context context,
@@ -46,65 +52,114 @@ public class SyncMetadataWorker extends Worker {
         super(context, workerParams);
     }
 
-    @Override
-    public void onStopped(boolean cancelled) {
-        super.onStopped(cancelled);
-        Log.d(this.getClass().getSimpleName(), "Metadata process finished");
-    }
-
     @NonNull
     @Override
-    @AddTrace(name = "MetadataSyncTrace")
     public Result doWork() {
-        Objects.requireNonNull(((App) getApplicationContext()).userComponent()).plus(new SyncMetadataWorkerModule()).inject(this);
+        if (((App) getApplicationContext()).userComponent() != null) {
 
-        triggerNotification(SYNC_METADATA_ID,
-                getApplicationContext().getString(R.string.app_name),
-                getApplicationContext().getString(R.string.syncing_configuration));
-        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(new Intent("action_sync").putExtra("metaSyncInProgress", true));
+            ((App) getApplicationContext()).userComponent().plus(new SyncMetadataWorkerModule()).inject(this);
 
-        boolean isMetaOk = true;
+            triggerNotification(
+                    getApplicationContext().getString(R.string.app_name),
+                    getApplicationContext().getString(R.string.syncing_configuration),
+                    0);
 
-        try {
-            presenter.syncMetadata(getApplicationContext());
-        } catch (Exception e) {
-            Timber.e(e);
-            isMetaOk = false;
+            boolean isMetaOk = true;
+            boolean noNetwork = false;
+            StringBuilder message = new StringBuilder("");
+
+            long init = System.currentTimeMillis();
+            try {
+                presenter.syncMetadata(progress -> triggerNotification(
+                        getApplicationContext().getString(R.string.app_name),
+                        getApplicationContext().getString(R.string.syncing_configuration),
+                        progress));
+            } catch (Exception e) {
+                Timber.e(e);
+                isMetaOk = false;
+                if (!NetworkUtils.isOnline(getApplicationContext()))
+                    noNetwork = true;
+                if (e instanceof D2Error) {
+                    message.append(D2ErrorUtils.getErrorMessage(getApplicationContext(), e))
+                            .append("\n\n")
+                            .append(errorStackTrace(((D2Error) e).originalException()).split("\n\t")[0])
+                            .append("\n\n")
+                            .append(errorStackTrace(e).split("\n\t")[0]);
+                } else if (e.getCause() instanceof D2Error) {
+                    message.append(D2ErrorUtils.getErrorMessage(getApplicationContext(), e.getCause()))
+                            .append("\n\n")
+                            .append(errorStackTrace(((D2Error) e.getCause()).originalException()).split("\n\t")[0])
+                            .append("\n\n")
+                            .append(e.toString().split("\n\t")[0]);
+                } else {
+                    message.append(e.toString().split("\n\t")[0]);
+                }
+            } finally {
+                presenter.logTimeToFinish(System.currentTimeMillis() - init, METADATA_TIME);
+            }
+
+            String lastDataSyncDate = DateUtils.dateTimeFormat().format(Calendar.getInstance().getTime());
+
+            prefs.setValue(Constants.LAST_META_SYNC, lastDataSyncDate);
+            prefs.setValue(Constants.LAST_META_SYNC_STATUS, isMetaOk);
+            prefs.setValue(Constants.LAST_META_SYNC_NO_NETWORK, noNetwork);
+
+            cancelNotification();
+
+            if (!isMetaOk)
+                return Result.failure(createOutputData(false, message.toString()));
+
+            presenter.startPeriodicMetaWork();
+
+            return Result.success(createOutputData(true, message.toString()));
+        } else {
+            return Result.failure(createOutputData(false, getApplicationContext().getString(R.string.error_init_session)));
         }
-
-        String lastDataSyncDate = DateUtils.dateTimeFormat().format(Calendar.getInstance().getTime());
-
-        SharedPreferences prefs = getApplicationContext().getSharedPreferences(Constants.SHARE_PREFS, Context.MODE_PRIVATE);
-        prefs.edit().putString(Constants.LAST_META_SYNC, lastDataSyncDate).apply();
-        prefs.edit().putBoolean(Constants.LAST_META_SYNC_STATUS, isMetaOk).apply();
-
-        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(new Intent("action_sync").putExtra("metaSyncInProgress", false));
-
-        cancelNotification();
-
-        return Result.SUCCESS;
     }
 
-    private void triggerNotification(int id, String title, String content) {
+    private Data createOutputData(boolean state, String message) {
+        return new Data.Builder()
+                .putBoolean(METADATA_STATE, state)
+                .putString(METADATA_MESSAGE, message)
+                .build();
+    }
+
+    private String errorStackTrace(@Nullable Exception exception){
+        if(exception == null)
+            return "";
+        Writer writer = new StringWriter();
+        exception.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
+    }
+
+
+    private void triggerNotification(String title, String content, int progress) {
         NotificationManager notificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel mChannel = new NotificationChannel(metadata_channel, "MetadataSync", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel mChannel = new NotificationChannel(METADATA_CHANNEL, "MetadataSync", NotificationManager.IMPORTANCE_HIGH);
             notificationManager.createNotificationChannel(mChannel);
         }
         NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(getApplicationContext(), metadata_channel)
+                new NotificationCompat.Builder(getApplicationContext(), METADATA_CHANNEL)
                         .setSmallIcon(R.drawable.ic_sync)
                         .setContentTitle(title)
                         .setContentText(content)
+                        .setOngoing(true)
+                        .setOnlyAlertOnce(true)
                         .setAutoCancel(false)
+                        .setProgress(100, progress, false)
                         .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
-        notificationManager.notify(id, notificationBuilder.build());
+        notificationManager.notify(SyncMetadataWorker.SYNC_METADATA_ID, notificationBuilder.build());
     }
 
     private void cancelNotification() {
         NotificationManagerCompat notificationManager =
                 NotificationManagerCompat.from(getApplicationContext());
         notificationManager.cancel(SYNC_METADATA_ID);
+    }
+
+    public interface OnProgressUpdate {
+        void onProgressUpdate(int progress);
     }
 }

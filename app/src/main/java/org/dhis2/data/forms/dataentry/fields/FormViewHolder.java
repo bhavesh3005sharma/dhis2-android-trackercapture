@@ -1,49 +1,52 @@
 package org.dhis2.data.forms.dataentry.fields;
 
-import android.app.Activity;
-import androidx.databinding.ViewDataBinding;
-import androidx.recyclerview.widget.RecyclerView;
-import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
 
+import androidx.databinding.ViewDataBinding;
+import androidx.recyclerview.widget.RecyclerView;
+
+import org.dhis2.BR;
+import org.dhis2.Bindings.ExtensionsKt;
+import org.dhis2.Bindings.ViewExtensionsKt;
 import org.dhis2.R;
-import org.dhis2.utils.Constants;
-import org.dhis2.utils.custom_views.CustomDialog;
+import org.dhis2.form.model.FieldUiModel;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * QUADRAM. Created by ppajuelo on 06/11/2017.
- */
+public class FormViewHolder extends RecyclerView.ViewHolder {
 
-public abstract class FormViewHolder extends RecyclerView.ViewHolder {
-
-    public ViewDataBinding binding;
-    public ImageView description;
-    public StringBuilder label;
-    public String descriptionText;
+    private final ViewDataBinding binding;
 
     public FormViewHolder(ViewDataBinding binding) {
         super(binding.getRoot());
         this.binding = binding;
-        this.description = binding.getRoot().findViewById(R.id.descriptionLabel);
-        if (description != null) {
-            description.setOnClickListener(v ->
-                    new CustomDialog(
-                            itemView.getContext(),
-                            label.toString(),
-                            descriptionText != null ? descriptionText : itemView.getContext().getString(R.string.empty_description),
-                            itemView.getContext().getString(R.string.action_accept),
-                            null,
-                            Constants.DESCRIPTION_DIALOG,
-                            null
-                    ).show());
+        ImageView fieldSelected = binding.getRoot().findViewById(R.id.fieldSelected);
+        if (fieldSelected != null) {
+            ViewExtensionsKt.clipWithAllRoundedCorners(fieldSelected, ExtensionsKt.getDp(2));
         }
     }
 
-    public abstract void dispose();
+    public void bind(FieldUiModel uiModel, FieldItemCallback callback) {
+        FieldUiModel.Callback itemCallback = new FieldUiModel.Callback() {
+            @Override
+            public void onNext() {
+                callback.onNext(getLayoutPosition());
+            }
 
-    public void closeKeyboard(View v){
-        InputMethodManager imm = (InputMethodManager) v.getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+            @Override
+            public void showDialog(@NotNull String title, @Nullable String message) {
+                callback.onShowDialog(title, message);
+            }
+        };
+        uiModel.setCallback(itemCallback);
+
+        binding.setVariable(BR.item, uiModel);
+        binding.executePendingBindings();
+    }
+
+    public interface FieldItemCallback {
+        void onShowDialog(String title, @Nullable String message);
+
+        void onNext(int layoutPosition);
     }
 }

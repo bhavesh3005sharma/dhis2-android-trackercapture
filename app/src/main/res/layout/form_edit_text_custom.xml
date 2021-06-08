@@ -3,27 +3,37 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <data>
+        <import type="android.view.View" />
 
         <variable
-            name="valueType"
-            type="org.hisp.dhis.android.core.common.ValueType" />
-
-        <variable
-            name="label"
-            type="java.lang.String" />
-
-        <variable
-            name="bgTransparent"
-            type="java.lang.Boolean" />
-
+            name="item"
+            type="org.dhis2.data.forms.dataentry.fields.edittext.EditTextViewModel" />
     </data>
 
-    <org.dhis2.utils.custom_views.CustomTextView
-        android:id="@+id/custom_edittext"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layout"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:isBgTransparent="@{ bgTransparent }"
-        app:label="@{ label }"
-        app:valueType="@{ valueType }" />
+        android:layout_height="wrap_content">
 
+        <ImageView
+            android:id="@+id/fieldSelected"
+            android:layout_width="2dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="6dp"
+            android:background="?colorPrimary"
+            android:visibility="@{item.activated ? View.VISIBLE : View.GONE}"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <org.dhis2.data.forms.dataentry.fields.edittext.CustomTextView
+            android:id="@+id/custom_edittext"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:viewModel="@{item}" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

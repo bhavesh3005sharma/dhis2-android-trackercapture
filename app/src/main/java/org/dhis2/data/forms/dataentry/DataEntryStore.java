@@ -7,14 +7,14 @@ import io.reactivex.Flowable;
 
 public interface DataEntryStore {
 
-
-    enum valueType{
+    enum valueType {
         ATTR, DATA_ELEMENT
+    }
+
+    enum EntryMode {
+        DE, ATTR,DV
     }
 
     @NonNull
     Flowable<Long> save(@NonNull String uid, @Nullable String value);
-
-//    boolean checkUnique(String id, String value);
-
 }

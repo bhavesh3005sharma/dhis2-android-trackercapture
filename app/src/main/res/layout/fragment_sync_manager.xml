@@ -7,7 +7,7 @@
 
         <variable
             name="presenter"
-            type="org.dhis2.usescases.syncManager.SyncManagerContracts.Presenter" />
+            type="org.dhis2.usescases.settings.SyncManagerContracts.Presenter" />
 
     </data>
 
@@ -78,6 +78,10 @@
                 android:layout_marginTop="10dp"
                 android:onClick='@{()->presenter.syncMeta()}'
                 android:text="@string/SYNC_META" />
+
+            <include
+                android:id="@+id/settings_sms"
+                layout="@layout/settings_sms" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -174,6 +178,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:text="@string/limit_by_organisation_unit"
+                android:textColor="@color/text_black_333"
+                app:switchPadding="15dp" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/limitByProgram"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/limit_by_program"
                 android:textColor="@color/text_black_333"
                 app:switchPadding="15dp" />
 

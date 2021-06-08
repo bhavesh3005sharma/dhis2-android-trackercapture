@@ -1,156 +1,207 @@
 package org.dhis2.usescases.general;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
-import android.content.res.TypedArray;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityOptionsCompat;
-import androidx.core.content.ContextCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import androidx.core.widget.ContentLoadingProgressBar;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.PopupMenu;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.crashlytics.android.Crashlytics;
-import com.google.firebase.analytics.FirebaseAnalytics;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityOptionsCompat;
+import androidx.core.content.ContextCompat;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import org.dhis2.App;
+import org.dhis2.Bindings.ExtensionsKt;
 import org.dhis2.BuildConfig;
 import org.dhis2.R;
+import org.dhis2.data.server.ServerComponent;
 import org.dhis2.usescases.login.LoginActivity;
 import org.dhis2.usescases.main.MainActivity;
-import org.dhis2.usescases.map.MapSelectorActivity;
 import org.dhis2.usescases.splash.SplashActivity;
-import org.dhis2.utils.ColorUtils;
+import org.dhis2.utils.ActivityResultObservable;
+import org.dhis2.utils.ActivityResultObserver;
 import org.dhis2.utils.Constants;
-import org.dhis2.utils.custom_views.CoordinatesView;
-import org.dhis2.utils.custom_views.CustomDialog;
+import org.dhis2.utils.DialogClickListener;
 import org.dhis2.utils.HelpManager;
 import org.dhis2.utils.OnDialogClickListener;
-import org.dhis2.utils.SyncUtils;
+import org.dhis2.utils.analytics.AnalyticsConstants;
+import org.dhis2.utils.analytics.AnalyticsHelper;
+import org.dhis2.utils.customviews.CustomDialog;
+import org.dhis2.utils.granularsync.SyncStatusDialog;
+import org.dhis2.utils.reporting.CrashReportController;
+import org.dhis2.utils.session.PinDialog;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.List;
 
+import javax.inject.Inject;
+
+import kotlin.Unit;
 import rx.Observable;
 import rx.subjects.BehaviorSubject;
+import timber.log.Timber;
 
-/**
- * QUADRAM. Created by Javi on 28/07/2017.
- */
+import static org.dhis2.utils.Constants.CAMERA_REQUEST;
+import static org.dhis2.utils.Constants.GALLERY_REQUEST;
+import static org.dhis2.utils.analytics.AnalyticsConstants.CLICK;
+import static org.dhis2.utils.analytics.AnalyticsConstants.SHOW_HELP;
+import static org.dhis2.utils.session.PinDialogKt.PIN_DIALOG_TAG;
 
-public abstract class ActivityGlobalAbstract extends AppCompatActivity implements AbstractActivityContracts.View, CoordinatesView.OnMapPositionClick {
+
+public abstract class ActivityGlobalAbstract extends AppCompatActivity
+        implements AbstractActivityContracts.View, ActivityResultObservable {
+
+    private static final String FRAGMENT_TAG = "SYNC";
 
     private BehaviorSubject<Status> lifeCycleObservable = BehaviorSubject.create();
-    private CoordinatesView coordinatesView;
-    public ContentLoadingProgressBar progressBar;
-    private FirebaseAnalytics mFirebaseAnalytics;
+    public String uuid;
+    @Inject
+    public AnalyticsHelper analyticsHelper;
+    @Inject
+    public CrashReportController crashReportController;
+    private PinDialog pinDialog;
+    private boolean comesFromImageSource = false;
 
-    private BroadcastReceiver syncReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() != null && intent.getAction().equals("action_sync")) {
-                if (intent.getExtras() != null) {
-                    if (progressBar != null)
-                        if (SyncUtils.isSyncRunning() && progressBar.getVisibility() == View.GONE)
-                            progressBar.setVisibility(View.VISIBLE);
-                        else if (!SyncUtils.isSyncRunning())
-                            progressBar.setVisibility(View.GONE);
-                }
+    private ActivityResultObserver activityResultObserver;
 
-            }
-        }
-    };
+    public void requestEnableLocation() {
+        displayMessage(getString(R.string.enable_location_message));
+    }
 
     public enum Status {
         ON_PAUSE,
         ON_RESUME
     }
 
-    //****************
-    //LIFECYCLE REGION
 
     public void setScreenName(String name) {
-        Crashlytics.setString(Constants.SCREEN_NAME, name);
+        crashReportController.trackScreenName(name);
     }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+        ServerComponent serverComponent = ((App) getApplicationContext()).getServerComponent();
+        if (serverComponent != null) {
+            serverComponent.openIdSession().setSessionCallback(this, () -> {
+                showSessionExpired();
+                return Unit.INSTANCE;
+            });
+        }
 
         if (!getResources().getBoolean(R.bool.is_tablet))
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
 
-        if (!BuildConfig.DEBUG)
+        if (!BuildConfig.DEBUG && !BuildConfig.BUILD_TYPE.equals("beta"))
             getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         SharedPreferences prefs = getSharedPreferences();
         if (this instanceof MainActivity || this instanceof LoginActivity || this instanceof SplashActivity) {
             prefs.edit().remove(Constants.PROGRAM_THEME).apply();
         }
 
-        setTheme(prefs.getInt(Constants.PROGRAM_THEME, prefs.getInt(Constants.THEME, R.style.AppTheme)));
-
-        Crashlytics.setString(Constants.SERVER, prefs.getString(Constants.SERVER, null));
-        String userName = prefs.getString(Constants.USER, null);
-        if(userName != null)
-            Crashlytics.setString(Constants.USER, userName);
-        mFirebaseAnalytics.setUserId(prefs.getString(Constants.SERVER, null));
+        if (!(this instanceof SplashActivity) && !(this instanceof LoginActivity))
+            setTheme(prefs.getInt(Constants.PROGRAM_THEME, prefs.getInt(Constants.THEME, R.style.AppTheme)));
 
         super.onCreate(savedInstanceState);
+    }
 
+    private void initPinDialog() {
+        pinDialog = new PinDialog(PinDialog.Mode.ASK,
+                (this instanceof LoginActivity),
+                aBoolean -> {
+                    startActivity(MainActivity.class, null, true, true, null);
+                    return null;
+                },
+                () -> {
+                    analyticsHelper.setEvent(AnalyticsConstants.FORGOT_CODE, AnalyticsConstants.CLICK, AnalyticsConstants.FORGOT_CODE);
+                    if (!(this instanceof LoginActivity)) {
+                        startActivity(LoginActivity.class, null, true, true, null);
+                    }
+                    return null;
+                }
+        );
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        LocalBroadcastManager.getInstance(this).registerReceiver(syncReceiver, new IntentFilter("action_sync"));
         lifeCycleObservable.onNext(Status.ON_RESUME);
-        setProgressBar(findViewById(R.id.toolbarProgress));
+        shouldCheckPIN();
+    }
+
+    private void shouldCheckPIN() {
+        if (comesFromImageSource) {
+            ExtensionsKt.app(this).disableBackGroundFlag();
+            comesFromImageSource = false;
+        } else {
+            if (ExtensionsKt.app(this).isSessionBlocked() && !(this instanceof SplashActivity)) {
+                if (getPinDialog() == null) {
+                    initPinDialog();
+                    showPinDialog();
+                }
+            }
+        }
     }
 
     @Override
     protected void onPause() {
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(syncReceiver);
         super.onPause();
         lifeCycleObservable.onNext(Status.ON_PAUSE);
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        PinDialog dialog = getPinDialog();
+        if (dialog != null) {
+            dialog.dismissAllowingStateLoss();
+        }
+    }
+
+
+    @Override
     protected void onDestroy() {
-        progressBar = null;
         super.onDestroy();
     }
 
-    //****************
-    //PUBLIC METHOD REGION
-
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (activityResultObserver != null) {
+            activityResultObserver.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            activityResultObserver = null;
+        }
+    }
 
     @Override
     public void setTutorial() {
 
     }
 
+    public void showPinDialog() {
+        pinDialog.show(getSupportFragmentManager(), PIN_DIALOG_TAG);
+    }
+
+    public PinDialog getPinDialog() {
+        return (PinDialog) getSupportFragmentManager().findFragmentByTag(PIN_DIALOG_TAG);
+    }
+
     @Override
     public void showTutorial(boolean shaked) {
-        HelpManager.getInstance().showHelp();
+        if (HelpManager.getInstance().isReady()) {
+            HelpManager.getInstance().showHelp();
+        } else {
+            showToast(getString(R.string.no_intructions));
+        }
     }
 
     public void showMoreOptions(View view) {
@@ -168,10 +219,11 @@ public abstract class ActivityGlobalAbstract extends AppCompatActivity implement
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Timber.e(e);
         }
         popupMenu.getMenuInflater().inflate(R.menu.home_menu, popupMenu.getMenu());
         popupMenu.setOnMenuItemClickListener(item -> {
+            analyticsHelper.setEvent(SHOW_HELP, CLICK, SHOW_HELP);
             showTutorial(false);
             return false;
         });
@@ -221,24 +273,6 @@ public abstract class ActivityGlobalAbstract extends AppCompatActivity implement
     }
 
     @Override
-    public <T> void saveListToPreference(String key, List<T> list) {
-        Gson gson = new Gson();
-        String json = gson.toJson(list);
-
-        getSharedPreferences(Constants.SHARE_PREFS, MODE_PRIVATE).edit().putString(key, json).apply();
-    }
-
-    @Override
-    public <T> List<T> getListFromPreference(String key) {
-        Gson gson = new Gson();
-        String json = getSharedPreferences().getString(key, "[]");
-        Type type = new TypeToken<List<T>>() {
-        }.getType();
-
-        return gson.fromJson(json, type);
-    }
-
-    @Override
     public SharedPreferences getSharedPreferences() {
         return getSharedPreferences(Constants.SHARE_PREFS, MODE_PRIVATE);
     }
@@ -267,72 +301,65 @@ public abstract class ActivityGlobalAbstract extends AppCompatActivity implement
     @Override
     public void showInfoDialog(String title, String message) {
         if (getActivity() != null) {
-            AlertDialog alertDialog = new AlertDialog.Builder(getActivity()).create();
+            showInfoDialog(title, message, new OnDialogClickListener() {
+                @Override
+                public void onPositiveClick() {
 
-            //TITLE
-            final View titleView = LayoutInflater.from(getActivity()).inflate(R.layout.dialog_title, null);
-            ((TextView) titleView.findViewById(R.id.dialogTitle)).setText(title);
-            alertDialog.setCustomTitle(titleView);
+                }
 
-            //BODY
-            final View msgView = LayoutInflater.from(getActivity()).inflate(R.layout.dialog_body, null);
-            ((TextView) msgView.findViewById(R.id.dialogBody)).setText(message);
-            msgView.findViewById(R.id.dialogAccept).setOnClickListener(view -> alertDialog.dismiss());
-            msgView.findViewById(R.id.dialogCancel).setOnClickListener(view -> alertDialog.dismiss());
-            alertDialog.setView(msgView);
+                @Override
+                public void onNegativeClick() {
 
-
-            alertDialog.show();
-
+                }
+            });
         }
     }
 
     @Override
-    public AlertDialog showInfoDialog(String title, String message, OnDialogClickListener clickListener) {
+    public void showInfoDialog(String title, String message, OnDialogClickListener clickListener) {
         if (getActivity() != null) {
-            AlertDialog alertDialog = new AlertDialog.Builder(getActivity()).create();
-
-            //TITLE
-            final View titleView = LayoutInflater.from(getActivity()).inflate(R.layout.dialog_title, null);
-            ((TextView) titleView.findViewById(R.id.dialogTitle)).setText(title);
-            int colorPrimary = ColorUtils.getPrimaryColor(getActivity(), ColorUtils.ColorType.PRIMARY);
-            alertDialog.setCustomTitle(titleView);
-
-            //BODY
-            final View msgView = LayoutInflater.from(getActivity()).inflate(R.layout.dialog_body, null);
-            ((TextView) msgView.findViewById(R.id.dialogBody)).setText(message);
-            msgView.findViewById(R.id.dialogAccept).setOnClickListener(view -> {
-                clickListener.onPossitiveClick(alertDialog);
-                alertDialog.dismiss();
-            });
-            msgView.findViewById(R.id.dialogCancel).setOnClickListener(view -> {
-                clickListener.onNegativeClick(alertDialog);
-                alertDialog.dismiss();
-            });
-            alertDialog.setView(msgView);
-
-            return alertDialog;
-
-        } else
-            return null;
+            showInfoDialog(title, message, getString(R.string.button_ok), getString(R.string.cancel), clickListener);
+        }
     }
 
     @Override
-    public void onMapPositionClick(CoordinatesView coordinatesView) {
-        this.coordinatesView = coordinatesView;
-        startActivityForResult(MapSelectorActivity.create(this), Constants.RQ_MAP_LOCATION_VIEW);
+    public void showInfoDialog(String title, String message, String positiveButtonText, String negativeButtonText, OnDialogClickListener clickListener) {
+        if (getActivity() != null) {
+            new MaterialAlertDialogBuilder(this, R.style.DhisMaterialDialog)
+                    .setTitle(title)
+                    .setCancelable(false)
+                    .setMessage(message)
+                    .setPositiveButton(positiveButtonText, (dialogInterface, i) -> clickListener.onPositiveClick())
+                    .setNegativeButton(negativeButtonText, (dialogInterface, i) -> clickListener.onNegativeClick())
+                    .show();
+        }
+    }
+
+    @Override
+    public void subscribe(@NotNull ActivityResultObserver activityResultObserver) {
+        this.activityResultObserver = activityResultObserver;
+    }
+
+    @Override
+    public void unsubscribe() {
+        this.activityResultObserver = null;
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
         switch (requestCode) {
-            case Constants.RQ_MAP_LOCATION_VIEW:
-                if (coordinatesView != null && resultCode == RESULT_OK && data.getExtras() != null) {
-                    coordinatesView.updateLocation(Double.valueOf(data.getStringExtra(MapSelectorActivity.LATITUDE)), Double.valueOf(data.getStringExtra(MapSelectorActivity.LONGITUDE)));
-                }
-                this.coordinatesView = null;
+            case GALLERY_REQUEST:
+            case CAMERA_REQUEST:
+                comesFromImageSource = true;
                 break;
         }
+
+        if (activityResultObserver != null) {
+            activityResultObserver.onActivityResult(requestCode, resultCode, data);
+            activityResultObserver = null;
+        }
+
         super.onActivityResult(requestCode, resultCode, data);
     }
 
@@ -342,27 +369,44 @@ public abstract class ActivityGlobalAbstract extends AppCompatActivity implement
                 getAbstracContext(),
                 getString(R.string.info),
                 description,
-                getString(R.string.action_accept),
+                getString(R.string.action_close),
                 null,
                 Constants.DESCRIPTION_DIALOG,
                 null
         ).show();
     }
 
-    protected int getPrimaryColor() {
-        TypedValue typedValue = new TypedValue();
-        TypedArray a = getContext().obtainStyledAttributes(typedValue.data, new int[]{R.attr.colorPrimary});
-        int color = a.getColor(0, 0);
-        a.recycle();
-        return color;
+    @Override
+    public void showSyncDialog(SyncStatusDialog dialog) {
+        dialog.show(getSupportFragmentManager(), FRAGMENT_TAG);
     }
 
-    public void setProgressBar(ContentLoadingProgressBar progressBar) {
-        if (progressBar != null) {
-            this.progressBar = progressBar;
-            if (SyncUtils.isSyncRunning())
-                progressBar.setVisibility(View.VISIBLE);
-            else progressBar.setVisibility(View.GONE);
-        }
+    @Override
+    public AnalyticsHelper analyticsHelper() {
+        return analyticsHelper;
+    }
+
+    private void showSessionExpired() {
+        CustomDialog sessionDialog = new CustomDialog(
+                this,
+                getString(R.string.openid_session_expired),
+                getString(R.string.openid_session_expired_message),
+                getString(R.string.action_accept),
+                null,
+                Constants.SESSION_DIALOG_RQ,
+                new DialogClickListener() {
+                    @Override
+                    public void onPositive() {
+                        startActivity(LoginActivity.class, LoginActivity.Companion.bundle(true), true, true, null);
+                    }
+
+                    @Override
+                    public void onNegative() {
+
+                    }
+                }
+        );
+        sessionDialog.setCancelable(false);
+        sessionDialog.show();
     }
 }

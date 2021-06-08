@@ -1,789 +1,531 @@
 package org.dhis2.usescases.eventsWithoutRegistration.eventCapture;
 
-import android.content.ContentValues;
-import android.content.Context;
-import android.database.Cursor;
+import androidx.annotation.NonNull;
 
-import com.squareup.sqlbrite2.BriteDatabase;
-
-import org.dhis2.R;
-import org.dhis2.data.forms.FormRepository;
+import org.dhis2.Bindings.ValueExtensionsKt;
+import org.dhis2.data.dhislogic.AuthoritiesKt;
 import org.dhis2.data.forms.FormSectionViewModel;
-import org.dhis2.data.forms.RulesRepository;
-import org.dhis2.data.forms.dataentry.fields.FieldViewModel;
+import org.dhis2.data.forms.dataentry.RuleEngineRepository;
 import org.dhis2.data.forms.dataentry.fields.FieldViewModelFactory;
-import org.dhis2.data.forms.dataentry.fields.FieldViewModelFactoryImpl;
-import org.dhis2.data.tuples.Pair;
+import org.dhis2.data.forms.dataentry.fields.orgUnit.OrgUnitViewModel;
+import org.dhis2.form.model.FieldUiModel;
+import org.dhis2.form.model.LegendValue;
+import org.dhis2.form.model.RowAction;
 import org.dhis2.utils.DateUtils;
 import org.dhis2.utils.Result;
+import org.dhis2.utils.resources.ResourceManager;
 import org.hisp.dhis.android.core.D2;
-import org.hisp.dhis.android.core.category.CategoryOptionComboModel;
+import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
+import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope;
 import org.hisp.dhis.android.core.common.BaseIdentifiableObject;
-import org.hisp.dhis.android.core.common.ObjectStyleModel;
-import org.hisp.dhis.android.core.common.State;
+import org.hisp.dhis.android.core.common.ObjectStyle;
+import org.hisp.dhis.android.core.common.ObjectWithUid;
 import org.hisp.dhis.android.core.common.ValueType;
-import org.hisp.dhis.android.core.common.ValueTypeDeviceRenderingModel;
-import org.hisp.dhis.android.core.enrollment.EnrollmentModel;
+import org.hisp.dhis.android.core.common.ValueTypeDeviceRendering;
+import org.hisp.dhis.android.core.dataelement.DataElement;
+import org.hisp.dhis.android.core.enrollment.Enrollment;
 import org.hisp.dhis.android.core.enrollment.EnrollmentStatus;
-import org.hisp.dhis.android.core.event.EventModel;
+import org.hisp.dhis.android.core.event.Event;
+import org.hisp.dhis.android.core.event.EventEditableStatus;
+import org.hisp.dhis.android.core.event.EventNonEditableReason;
 import org.hisp.dhis.android.core.event.EventStatus;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
-import org.hisp.dhis.android.core.program.ProgramModel;
-import org.hisp.dhis.android.core.program.ProgramRuleAction;
-import org.hisp.dhis.android.core.program.ProgramRuleActionType;
-import org.hisp.dhis.android.core.program.ProgramRuleModel;
-import org.hisp.dhis.android.core.program.ProgramRuleVariableModel;
-import org.hisp.dhis.android.core.program.ProgramStageModel;
-import org.hisp.dhis.android.core.program.ProgramStageSectionDeviceRendering;
-import org.hisp.dhis.android.core.program.ProgramStageSectionModel;
+import org.hisp.dhis.android.core.imports.TrackerImportConflict;
+import org.hisp.dhis.android.core.legendset.Legend;
+import org.hisp.dhis.android.core.legendset.LegendSet;
+import org.hisp.dhis.android.core.maintenance.D2Error;
+import org.hisp.dhis.android.core.option.Option;
+import org.hisp.dhis.android.core.option.OptionGroup;
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
+import org.hisp.dhis.android.core.program.ProgramStageDataElement;
+import org.hisp.dhis.android.core.program.ProgramStageSection;
 import org.hisp.dhis.android.core.program.ProgramStageSectionRenderingType;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValueModel;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstanceModel;
-import org.hisp.dhis.rules.models.Rule;
-import org.hisp.dhis.rules.models.RuleAction;
-import org.hisp.dhis.rules.models.RuleDataValue;
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValueObjectRepository;
 import org.hisp.dhis.rules.models.RuleEffect;
-import org.hisp.dhis.rules.models.RuleEvent;
 
-import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.ListIterator;
+import java.util.Objects;
 
-import javax.annotation.Nonnull;
-
-import androidx.annotation.NonNull;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
+import io.reactivex.Single;
+import io.reactivex.processors.FlowableProcessor;
+import timber.log.Timber;
 
 import static android.text.TextUtils.isEmpty;
 
-/**
- * QUADRAM. Created by ppajuelo on 19/11/2018.
- */
 public class EventCaptureRepositoryImpl implements EventCaptureContract.EventCaptureRepository {
 
     private final FieldViewModelFactory fieldFactory;
 
-
-    private static final List<String> SECTION_TABLES = Arrays.asList(
-            EventModel.TABLE, ProgramModel.TABLE, ProgramStageModel.TABLE, ProgramStageSectionModel.TABLE);
-    private static final String SELECT_SECTIONS = "SELECT\n" +
-            "  Program.uid AS programUid,\n" +
-            "  ProgramStage.uid AS programStageUid,\n" +
-            "  ProgramStageSection.uid AS programStageSectionUid,\n" +
-            "  ProgramStageSection.displayName AS programStageSectionDisplayName,\n" +
-            "  ProgramStage.displayName AS programStageDisplayName,\n" +
-            "  ProgramStageSection.mobileRenderType AS renderType\n" +
-            "FROM Event\n" +
-            "  JOIN Program ON Event.program = Program.uid\n" +
-            "  JOIN ProgramStage ON Event.programStage = ProgramStage.uid\n" +
-            "  LEFT OUTER JOIN ProgramStageSection ON ProgramStageSection.programStage = Event.programStage\n" +
-            "WHERE Event.uid = ?\n" +
-            "AND " + EventModel.TABLE + "." + EventModel.Columns.STATE + " != '" + State.TO_DELETE + "' ORDER BY ProgramStageSection.sortOrder";
-
-    private static final String QUERY = "SELECT\n" +
-            "  Field.id,\n" +
-            "  Field.label,\n" +
-            "  Field.type,\n" +
-            "  Field.mandatory,\n" +
-            "  Field.optionSet,\n" +
-            "  Value.value,\n" +
-            "  Option.displayName,\n" +
-            "  Field.section,\n" +
-            "  Field.allowFutureDate,\n" +
-            "  Event.status,\n" +
-            "  Field.formLabel,\n" +
-            "  Field.displayDescription,\n" +
-            "  Field.formOrder,\n" +
-            "  Field.sectionOrder\n" +
-            "FROM Event\n" +
-            "  LEFT OUTER JOIN (\n" +
-            "      SELECT\n" +
-            "        DataElement.displayName AS label,\n" +
-            "        DataElement.valueType AS type,\n" +
-            "        DataElement.uid AS id,\n" +
-            "        DataElement.optionSet AS optionSet,\n" +
-            "        DataElement.displayFormName AS formLabel,\n" +
-            "        ProgramStageDataElement.sortOrder AS formOrder,\n" +
-            "        ProgramStageDataElement.programStage AS stage,\n" +
-            "        ProgramStageDataElement.compulsory AS mandatory,\n" +
-            "        ProgramStageSectionDataElementLink.programStageSection AS section,\n" +
-            "        ProgramStageDataElement.allowFutureDate AS allowFutureDate,\n" +
-            "        DataElement.displayDescription AS displayDescription,\n" +
-            "        ProgramStageSectionDataElementLink.sortOrder AS sectionOrder\n" + //This should override dataElement formOrder
-            "      FROM ProgramStageDataElement\n" +
-            "        INNER JOIN DataElement ON DataElement.uid = ProgramStageDataElement.dataElement\n" +
-            "        LEFT JOIN ProgramStageSection ON ProgramStageSection.programStage = ProgramStageDataElement.programStage\n" +
-            "        LEFT JOIN ProgramStageSectionDataElementLink ON ProgramStageSectionDataElementLink.programStageSection = ProgramStageSection.uid AND ProgramStageSectionDataElementLink.dataElement = DataElement.uid\n" +
-            "    ) AS Field ON (Field.stage = Event.programStage)\n" +
-            "  LEFT OUTER JOIN TrackedEntityDataValue AS Value ON (\n" +
-            "    Value.event = Event.uid AND Value.dataElement = Field.id\n" +
-            "  )\n" +
-            "  LEFT OUTER JOIN Option ON (\n" +
-            "    Field.optionSet = Option.optionSet AND Value.value = Option.code\n" +
-            "  )\n" +
-            " %s  " +
-            "ORDER BY CASE" +
-            " WHEN Field.sectionOrder IS NULL THEN Field.formOrder" +
-            " WHEN Field.sectionOrder IS NOT NULL THEN Field.sectionOrder" +
-            " END ASC;";
-
-    private static final String SECTION_RENDERING_TYPE = "SELECT ProgramStageSection.mobileRenderType FROM ProgramStageSection WHERE ProgramStageSection.uid = ?";
-    private static final String ACCESS_QUERY = "SELECT ProgramStage.accessDataWrite FROM ProgramStage JOIN Event ON Event.programStage = ProgramStage.uid WHERE Event.uid = ?";
-    private static final String PROGRAM_ACCESS_QUERY = "SELECT Program.accessDataWrite FROM Program JOIN Event ON Event.program = Program.uid WHERE Event.uid = ?";
-    private static final String OPTIONS = "SELECT Option.uid, Option.displayName, Option.code FROM Option WHERE Option.optionSet = ?";
-
-    private final BriteDatabase briteDatabase;
     private final String eventUid;
-    private final FormRepository formRepository;
+    private final Event currentEvent;
+
+    private final RuleEngineRepository ruleEngineRepository;
     private final D2 d2;
-    private boolean accessDataWrite;
-    private String lastUpdatedUid;
+    private final ResourceManager resourceManager;
+    private boolean isEventEditable;
+    private final LinkedHashMap<String, ProgramStageSection> sectionMap;
+    private List<FieldUiModel> sectionFields;
 
-    public EventCaptureRepositoryImpl(Context context, BriteDatabase briteDatabase, FormRepository formRepository, String eventUid, D2 d2) {
-        this.briteDatabase = briteDatabase;
+    public EventCaptureRepositoryImpl(FieldViewModelFactory fieldFactory,
+                                      RuleEngineRepository ruleEngineRepository,
+                                      String eventUid,
+                                      D2 d2,
+                                      ResourceManager resourceManager) {
         this.eventUid = eventUid;
-        this.formRepository = formRepository;
+        this.ruleEngineRepository = ruleEngineRepository;
         this.d2 = d2;
+        this.resourceManager = resourceManager;
 
-        fieldFactory = new FieldViewModelFactoryImpl(
-                context.getString(R.string.enter_text),
-                context.getString(R.string.enter_long_text),
-                context.getString(R.string.enter_number),
-                context.getString(R.string.enter_integer),
-                context.getString(R.string.enter_positive_integer),
-                context.getString(R.string.enter_negative_integer),
-                context.getString(R.string.enter_positive_integer_or_zero),
-                context.getString(R.string.filter_options),
-                context.getString(R.string.choose_date));
+        currentEvent = d2.eventModule().events().uid(eventUid).blockingGet();
+        this.fieldFactory = fieldFactory;
+
+        List<ProgramStageSection> sections = d2.programModule().programStageSections()
+                .byProgramStageUid().eq(currentEvent.programStage())
+                .withDataElements()
+                .blockingGet();
+        sectionMap = new LinkedHashMap<>();
+        if (sections != null && !sections.isEmpty()) {
+            for (ProgramStageSection section : sections) {
+                sectionMap.put(section.uid(), section);
+            }
+        }
+
+        sectionFields = new ArrayList<>();
     }
 
     @Override
     public boolean isEnrollmentOpen() {
-        Boolean isEnrollmentOpen = true;
-        Cursor enrollmentCursor = briteDatabase.query("SELECT Enrollment.* FROM Enrollment JOIN Event ON Event.enrollment = Enrollment.uid WHERE Event.uid = ?", eventUid);
-        if (enrollmentCursor != null) {
-            if (enrollmentCursor.moveToFirst()) {
-                EnrollmentModel enrollment = EnrollmentModel.create(enrollmentCursor);
-                isEnrollmentOpen = enrollment.enrollmentStatus() == EnrollmentStatus.ACTIVE;
-            }
-            enrollmentCursor.close();
-        }
-        return isEnrollmentOpen;
+        return currentEvent.enrollment() == null || d2.enrollmentModule().enrollmentService().blockingIsOpen(currentEvent.enrollment());
+    }
+
+    @Override
+    public boolean isEnrollmentCancelled() {
+        Enrollment enrollment = d2.enrollmentModule().enrollments().uid(currentEvent.enrollment()).blockingGet();
+        if (enrollment == null)
+            return false;
+        else
+            return enrollment.status() == EnrollmentStatus.CANCELLED;
+    }
+
+    @Override
+    public boolean isEventEditable(String eventUid) {
+        return d2.eventModule().eventService().blockingIsEditable(eventUid);
     }
 
     @Override
     public Flowable<String> programStageName() {
-        return briteDatabase.createQuery(ProgramStageModel.TABLE,
-                "SELECT ProgramStage.* FROM ProgramStage " +
-                        "JOIN Event ON Event.programStage = ProgramStage.uid " +
-                        "WHERE Event.uid = ? LIMIT 1", eventUid)
-                .mapToOne(cursor -> ProgramStageModel.create(cursor).displayName())
-                .toFlowable(BackpressureStrategy.LATEST);
+        return d2.programModule().programStages().uid(currentEvent.programStage()).get()
+                .map(BaseIdentifiableObject::displayName)
+                .toFlowable();
     }
 
     @Override
     public Flowable<String> eventDate() {
-        return briteDatabase.createQuery(ProgramStageModel.TABLE,
-                "SELECT Event.* FROM Event " +
-                        "WHERE Event.uid = ? LIMIT 1", eventUid)
-                .mapToOne(cursor -> EventModel.create(cursor).eventDate())
-                .map(eventDate -> DateUtils.uiDateFormat().format(eventDate))
-                .toFlowable(BackpressureStrategy.LATEST);
+        return Flowable.just(
+                currentEvent.eventDate() != null ? DateUtils.uiDateFormat().format(currentEvent.eventDate()) : ""
+        );
     }
 
     @Override
-    public Flowable<String> orgUnit() {
-        return briteDatabase.createQuery(ProgramStageModel.TABLE,
-                "SELECT OrganisationUnit.* FROM OrganisationUnit " +
-                        "JOIN Event ON Event.organisationUnit = OrganisationUnit.uid " +
-                        "WHERE Event.uid = ? LIMIT 1", eventUid)
-                .mapToOne(cursor -> OrganisationUnitModel.create(cursor).displayName())
-                .toFlowable(BackpressureStrategy.LATEST);
+    public Flowable<OrganisationUnit> orgUnit() {
+        return Flowable.just(d2.organisationUnitModule().organisationUnits().uid(currentEvent.organisationUnit()).blockingGet());
     }
 
 
     @Override
     public Flowable<String> catOption() {
-        return briteDatabase.createQuery(CategoryOptionComboModel.TABLE,
-                "SELECT CategoryOptionCombo.* FROM CategoryOptionCombo " +
-                        "JOIN Event ON Event.attributeOptionCombo = CategoryOptionCombo.uid " +
-                        "WHERE Event.uid = ? LIMIT 1", eventUid)
-                .mapToOneOrDefault(cursor -> CategoryOptionComboModel.create(cursor).displayName(), "")
-                .toFlowable(BackpressureStrategy.LATEST);
+        return Flowable.just(d2.categoryModule().categoryOptionCombos().uid(currentEvent.attributeOptionCombo()))
+                .map(categoryOptionComboRepo -> {
+                    if (categoryOptionComboRepo.blockingGet() == null)
+                        return "";
+                    else
+                        return categoryOptionComboRepo.blockingGet().displayName();
+                })
+                .map(displayName -> displayName.equals("default") ? "" : displayName);
     }
 
     @Override
     public Flowable<List<FormSectionViewModel>> eventSections() {
-        return briteDatabase
-                .createQuery(SECTION_TABLES, SELECT_SECTIONS, eventUid)
-                .mapToList(this::mapToFormSectionViewModels)
-                .distinctUntilChanged().toFlowable(BackpressureStrategy.LATEST);
-    }
+        return Flowable.just(currentEvent)
+                .map(eventSingle -> {
+                    List<FormSectionViewModel> formSection = new ArrayList<>();
+                    if (eventSingle.deleted() == null || !eventSingle.deleted()) {
+                        List<ProgramStageSection> stageSections = new ArrayList<>(sectionMap.values());
+                        if (!stageSections.isEmpty()) {
+                            Collections.sort(stageSections, (one, two) ->
+                                    one.sortOrder().compareTo(two.sortOrder()));
 
-    @NonNull
-    @Override
-    public Flowable<List<FieldViewModel>> list(String sectionUid) {
-
-        accessDataWrite = getAccessDataWrite();
-
-        return briteDatabase
-                .createQuery(TrackedEntityDataValueModel.TABLE, prepareStatement(sectionUid, eventUid))
-                .mapToList(this::transform)
-                .map(this::checkRenderType)
-                .toFlowable(BackpressureStrategy.LATEST);
-    }
-
-    private ProgramStageSectionRenderingType renderingType(String sectionUid) {
-        ProgramStageSectionRenderingType renderingType = ProgramStageSectionRenderingType.LISTING;
-        if (sectionUid != null) {
-            ProgramStageSectionDeviceRendering stageSectionRendering = d2.programModule().programStageSections.uid(sectionUid).get().renderType().mobile();
-            if (stageSectionRendering != null)
-                renderingType = stageSectionRendering.type();
-        }
-
-        return renderingType;
-    }
-
-    private List<FieldViewModel> checkRenderType(List<FieldViewModel> fieldViewModels) {
-
-        ArrayList<FieldViewModel> renderList = new ArrayList<>();
-
-        for (FieldViewModel fieldViewModel : fieldViewModels) {
-
-            ProgramStageSectionRenderingType renderingType = renderingType(fieldViewModel.programStageSection());
-            if (!isEmpty(fieldViewModel.optionSet()) && renderingType != ProgramStageSectionRenderingType.LISTING) {
-                Cursor cursor = briteDatabase.query(OPTIONS, fieldViewModel.optionSet() == null ? "" : fieldViewModel.optionSet());
-                if (cursor != null && cursor.moveToFirst()) {
-                    int optionCount = cursor.getCount();
-                    for (int i = 0; i < optionCount; i++) {
-                        String uid = cursor.getString(0);
-                        String displayName = cursor.getString(1);
-                        String optionCode = cursor.getString(2);
-
-                        ValueTypeDeviceRenderingModel fieldRendering = null;
-                        Cursor rendering = briteDatabase.query("SELECT ValueTypeDeviceRendering.* FROM ValueTypeDeviceRendering" +
-                                " JOIN ProgramStageDataElement ON ProgramStageDataElement.uid = ValueTypeDeviceRendering.uid" +
-                                " WHERE ProgramStageDataElement.uid = ?", uid);
-                        try {
-                            if (rendering.moveToFirst())
-                                fieldRendering = ValueTypeDeviceRenderingModel.create(rendering);
-                        } finally {
-                            if (rendering != null)
-                                rendering.close();
+                            for (ProgramStageSection section : stageSections)
+                                formSection.add(FormSectionViewModel.createForSection(
+                                        eventUid,
+                                        section.uid(),
+                                        section.displayName(),
+                                        section.renderType() != null && section.renderType().mobile() != null ?
+                                                section.renderType().mobile().type().name() :
+                                                null)
+                                );
+                        } else {
+                            formSection.add(FormSectionViewModel.createForSection(
+                                    eventUid,
+                                    "",
+                                    "",
+                                    ProgramStageSectionRenderingType.LISTING.name()));
                         }
-
-                        ObjectStyleModel objectStyle = ObjectStyleModel.builder().build();
-                        Cursor objStyleCursor = briteDatabase.query("SELECT * FROM ObjectStyle WHERE uid = ?", uid);
-                        try {
-                            if (objStyleCursor.moveToFirst())
-                                objectStyle = ObjectStyleModel.create(objStyleCursor);
-                        } finally {
-                            if (objStyleCursor != null)
-                                objStyleCursor.close();
-                        }
-
-                        renderList.add(fieldFactory.create(
-                                fieldViewModel.uid() + "." + uid, //fist
-                                displayName + "-" + optionCode, ValueType.TEXT, false,
-                                fieldViewModel.optionSet(), fieldViewModel.value(), fieldViewModel.programStageSection(),
-                                fieldViewModel.allowFutureDate(), fieldViewModel.editable() == null ? false : fieldViewModel.editable(), renderingType, fieldViewModel.description(), fieldRendering, optionCount, objectStyle));
-
-                        cursor.moveToNext();
                     }
-                    cursor.close();
-                }
-            } else
-                renderList.add(fieldViewModel);
-        }
-
-        return renderList;
-
+                    return formSection;
+                });
     }
 
     @NonNull
     @Override
-    public Flowable<List<FieldViewModel>> list() {
-        accessDataWrite = getAccessDataWrite();
-        return briteDatabase
-                .createQuery(TrackedEntityDataValueModel.TABLE, prepareStatement(eventUid))
-                .mapToList(this::transform)
-                .map(this::checkRenderType)
-                .toFlowable(BackpressureStrategy.LATEST);
-    }
-
-
-    @NonNull
-    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
-    private String prepareStatement(String sectionUid, String eventUid) {
-        String where;
-        if (isEmpty(sectionUid)) {
-            where = String.format(Locale.US, "WHERE Event.uid = '%s'", eventUid == null ? "" : eventUid);
+    public Flowable<List<FieldUiModel>> list(FlowableProcessor<RowAction> processor) {
+        isEventEditable = isEventEditable(eventUid);
+        if (!sectionFields.isEmpty()) {
+            return Flowable.just(sectionFields);
         } else {
-            where = String.format(Locale.US, "WHERE Event.uid = '%s' AND " +
-                    "Field.section = '%s'", eventUid == null ? "" : eventUid, sectionUid == null ? "" : sectionUid);
-        }
+            return Flowable.fromCallable(() -> {
+                List<ProgramStageDataElement> stageDataElements = d2.programModule().programStageDataElements()
+                        .byProgramStage().eq(currentEvent.programStage())
+                        .withRenderType().blockingGet();
+                List<ProgramStageSection> stageSections = d2.programModule().programStageSections()
+                        .byProgramStageUid().eq(currentEvent.programStage())
+                        .withDataElements()
+                        .blockingGet();
+                if (!stageSections.isEmpty()) {
+                    //REORDER PROGRAM STAGE DATA ELEMENTS
+                    List<String> dataElementsOrder = new ArrayList<>();
+                    for (ProgramStageSection section : stageSections) {
+                        dataElementsOrder.addAll(UidsHelper.getUidsList(section.dataElements()));
+                    }
+                    Collections.sort(stageDataElements, (de1, de2) -> {
+                        Integer pos1 = dataElementsOrder.indexOf(de1.dataElement().uid());
+                        Integer pos2 = dataElementsOrder.indexOf(de2.dataElement().uid());
+                        return pos1.compareTo(pos2);
+                    });
+                }
+                return stageDataElements;
+            })
+                    .flatMapIterable(list -> list)
+                    .map(programStageDataElement -> {
+                        DataElement de = d2.dataElementModule().dataElements().uid(programStageDataElement.dataElement().uid()).blockingGet();
+                        TrackedEntityDataValueObjectRepository valueRepository = d2.trackedEntityModule().trackedEntityDataValues().value(eventUid, de.uid());
 
-        return String.format(Locale.US, QUERY, where);
+                        ProgramStageSection programStageSection = null;
+                        for (ProgramStageSection section : sectionMap.values()) {
+                            if (UidsHelper.getUidsList(section.dataElements()).contains(de.uid())) {
+                                programStageSection = section;
+                                break;
+                            }
+                        }
+
+                        String uid = de.uid();
+                        String displayName = de.displayName();
+                        ValueType valueType = de.valueType();
+                        boolean mandatory = programStageDataElement.compulsory() != null ? programStageDataElement.compulsory() : false;
+                        String optionSet = de.optionSetUid();
+                        String dataValue = valueRepository.blockingExists() ? valueRepository.blockingGet().value() : null;
+                        String rawValue = dataValue;
+                        String friendlyValue = dataValue != null ? ValueExtensionsKt.userFriendlyValue(ValueExtensionsKt.blockingGetValueCheck(valueRepository, d2, uid), d2) : null;
+
+                        boolean allowFutureDates = programStageDataElement.allowFutureDate() != null ? programStageDataElement.allowFutureDate() : false;
+                        String formName = de.displayFormName();
+                        String description = de.displayDescription();
+
+                        int optionCount = 0;
+                        List<Option> options;
+                        if (!isEmpty(optionSet)) {
+                            if (!isEmpty(dataValue)) {
+                                if (d2.optionModule().options().byOptionSetUid().eq(optionSet).byCode().eq(dataValue).one().blockingExists()) {
+                                    dataValue = d2.optionModule().options().byOptionSetUid().eq(optionSet).byCode().eq(dataValue).one().blockingGet().displayName();
+                                }
+                            }
+                            optionCount = d2.optionModule().options().byOptionSetUid().eq(optionSet).blockingCount();
+                            options = d2.optionModule().options().byOptionSetUid().eq(optionSet).orderBySortOrder(RepositoryScope.OrderByDirection.ASC).blockingGet();
+                        } else {
+                            options = new ArrayList<>();
+                        }
+
+                        ValueTypeDeviceRendering fieldRendering = programStageDataElement.renderType() != null ?
+                                programStageDataElement.renderType().mobile() : null;
+
+                        ObjectStyle objectStyle = de.style() != null ? de.style() : ObjectStyle.builder().build();
+
+                        String error = checkConflicts(de.uid(), dataValue);
+
+                        if (valueType == ValueType.ORGANISATION_UNIT && !isEmpty(dataValue)) {
+                            dataValue = dataValue + "_ou_" + friendlyValue;
+                        } else {
+                            dataValue = friendlyValue;
+                        }
+
+                        LegendValue legendValue = getColorByLegend(rawValue, uid);
+
+                        ProgramStageSectionRenderingType renderingType = programStageSection != null && programStageSection.renderType() != null &&
+                                programStageSection.renderType().mobile() != null ?
+                                programStageSection.renderType().mobile().type() : null;
+
+                        FieldUiModel fieldViewModel =
+                                fieldFactory.create(uid, formName == null ? displayName : formName,
+                                        valueType, mandatory, optionSet, dataValue,
+                                        programStageSection != null ? programStageSection.uid() : null, allowFutureDates,
+                                        isEventEditable,
+                                        renderingType, description, fieldRendering, optionCount, objectStyle, de.fieldMask(), legendValue, processor, options);
+
+                        if (!error.isEmpty()) {
+                            return fieldViewModel.setError(error);
+                        } else {
+                            return fieldViewModel;
+                        }
+
+                    })
+                    .toList().toFlowable()
+                    .map(data -> sectionFields = data);
+        }
     }
 
-    @NonNull
-    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
-    private String prepareStatement(String eventUid) {
-
-        StringBuilder sectionUids = new StringBuilder();
-
-        Cursor sectionsCursor = briteDatabase.query(SELECT_SECTIONS, eventUid);
-        if (sectionsCursor != null && sectionsCursor.moveToFirst()) {
-            for (int i = 0; i < sectionsCursor.getCount(); i++) {
-                if (sectionsCursor.getString(2) != null)
-                    sectionUids.append(String.format("'%s'", sectionsCursor.getString(2)));
-                if (i < sectionsCursor.getCount() - 1)
-                    sectionUids.append(",");
-                sectionsCursor.moveToNext();
+    private String checkConflicts(String dataElementUid, String value) {
+        List<TrackerImportConflict> conflicts =
+                d2.importModule().trackerImportConflicts()
+                        .byEventUid().eq(eventUid)
+                        .blockingGet();
+        String error = "";
+        for (TrackerImportConflict conflict : conflicts) {
+            if (conflict.event() != null && conflict.event().equals(eventUid) &&
+                    conflict.dataElement() != null && conflict.dataElement().equals(dataElementUid)) {
+                if (Objects.equals(conflict.value(), value)) {
+                    error = conflict.displayDescription();
+                }
             }
-            sectionsCursor.close();
         }
-
-        String where;
-        if (isEmpty(sectionUids)) {
-            where = String.format(Locale.US, "WHERE Event.uid = '%s'", eventUid == null ? "" : eventUid);
-        } else {
-            where = String.format(Locale.US, "WHERE Event.uid = '%s' AND " +
-                    "Field.section IN (%s)", eventUid == null ? "" : eventUid, sectionUids);
-        }
-
-        return String.format(Locale.US, QUERY, where);
+        return error;
     }
 
-    @NonNull
-    private FieldViewModel transform(@NonNull Cursor cursor) {
-        String uid = cursor.getString(0);
-        String displayName = cursor.getString(1);
-        String valueTypeName = cursor.getString(2);
-        boolean mandatory = cursor.getInt(3) == 1;
-        String optionSet = cursor.getString(4);
-        String dataValue = cursor.getString(5);
-        String optionCodeName = cursor.getString(6);
-        String programStageSection = cursor.getString(7);
-        boolean allowFurureDates = cursor.getInt(8) == 1;
-        EventStatus eventStatus = EventStatus.valueOf(cursor.getString(9));
-        String formName = cursor.getString(10);
-        String description = cursor.getString(11);
-
-        if (!isEmpty(optionCodeName)) {
-            dataValue = optionCodeName;
+    private LegendValue getColorByLegend(String value, String dataElementUid) {
+        if (value == null) {
+            return null;
         }
+        try {
+            final DataElement dataElement = d2.dataElementModule().dataElements()
+                    .byUid().eq(dataElementUid)
+                    .withLegendSets()
+                    .one().blockingGet();
 
-        int optionCount = 0;
-        if (!isEmpty(optionSet)) {
-            Cursor countCursor = briteDatabase.query("SELECT COUNT (uid) FROM Option WHERE optionSet = ?", optionSet);
-            try {
-                if (countCursor.moveToFirst())
-                    optionCount = countCursor.getInt(0);
-            } finally {
-                countCursor.close();
+            if (dataElement != null && dataElement.valueType().isNumeric() &&
+                    dataElement.legendSets() != null && !dataElement.legendSets().isEmpty()) {
+                LegendSet legendSet = dataElement.legendSets().get(0);
+                Legend legend = d2.legendSetModule().legends()
+                        .byStartValue().smallerThan(Double.valueOf(value))
+                        .byEndValue().biggerThan(Double.valueOf(value))
+                        .byLegendSet().eq(legendSet.uid())
+                        .one()
+                        .blockingGet();
+                if (legend == null) {
+                    legend = d2.legendSetModule().legends()
+                            .byEndValue().eq(Double.valueOf(value))
+                            .byLegendSet().eq(legendSet.uid())
+                            .one()
+                            .blockingGet();
+                }
+
+                if (legend != null) {
+                    return new LegendValue(
+                            resourceManager.getColorFrom(legend.color()),
+                            legend.displayName());
+                }
             }
+            return null;
+        } catch (Exception e) {
+            return null;
         }
-
-        ValueTypeDeviceRenderingModel fieldRendering = null;
-        Cursor rendering = briteDatabase.query("SELECT ValueTypeDeviceRendering.* FROM ValueTypeDeviceRendering" +
-                " JOIN ProgramStageDataElement ON ProgramStageDataElement.uid = ValueTypeDeviceRendering.uid" +
-                " WHERE ProgramStageDataElement.dataElement = ? LIMIT 1", uid);
-        try {
-            if (rendering.moveToFirst())
-                fieldRendering = ValueTypeDeviceRenderingModel.create(rendering);
-        } finally {
-            if (rendering != null)
-                rendering.close();
-        }
-        ObjectStyleModel objectStyle = ObjectStyleModel.builder().build();
-        Cursor objStyleCursor = briteDatabase.query("SELECT * FROM ObjectStyle WHERE uid = ?", uid);
-        try {
-            if (objStyleCursor.moveToFirst())
-                objectStyle = ObjectStyleModel.create(objStyleCursor);
-        } finally {
-            if (objStyleCursor != null)
-                objStyleCursor.close();
-        }
-
-        ProgramStageSectionRenderingType renderingType = renderingType(programStageSection);
-
-        return fieldFactory.create(uid, formName == null ? displayName : formName,
-                ValueType.valueOf(valueTypeName), mandatory, optionSet, dataValue,
-                programStageSection, allowFurureDates,
-                isEnrollmentOpen() && eventStatus == EventStatus.ACTIVE && accessDataWrite,
-                renderingType, description, fieldRendering, optionCount, objectStyle);
     }
 
     @NonNull
     @Override
     public Flowable<Result<RuleEffect>> calculate() {
-        return queryDataValues(eventUid)
-                .switchMap(this::queryEvent)
-                .switchMap(
-                        event -> formRepository.ruleEngine()
-                                .switchMap(ruleEngine -> {
-                                    if (isEmpty(lastUpdatedUid))
-                                        return Flowable.fromCallable(ruleEngine.evaluate(event));
-                                    else
-                                        return getRulesFor(lastUpdatedUid)
-                                                .flatMap(rules -> {
-                                                    if (!rules.isEmpty())
-                                                        return Flowable.fromCallable(ruleEngine.evaluate(event, rules));
-                                                    else
-                                                        return Flowable.just(new ArrayList<RuleEffect>());
-                                                });
-                                })
-                                .map(Result::success)
-                                .onErrorReturn(error -> Result.failure(new Exception(error)))
-                );
-    }
-
-    @NonNull
-    @Override
-    public Flowable<Result<RuleEffect>> calculate(String lastUpdatedElement) {
-        if (lastUpdatedElement == null)
-            return calculate();
-        else
-            return queryDataValues(eventUid)
-                    .switchMap(this::queryEvent)
-                    .flatMap(event ->
-                            Flowable.zip(Flowable.just(event),
-                                    getRulesFor(lastUpdatedElement),
-                                    Pair::create))
-                    .switchMap(
-                            eventAndRules -> formRepository.ruleEngine()
-                                    .switchMap(ruleEngine -> Flowable.fromCallable(ruleEngine.evaluate(eventAndRules.val0(), eventAndRules.val1()))
-                                            .map(Result::success)
-                                            .onErrorReturn(error -> Result.failure(new Exception(error)))
-                                    )
-                    );
-    }
-
-    private Flowable<List<Rule>> getRulesFor(String lastUpdatedElement) {
-        AtomicReference<String> selectedProgramUid = new AtomicReference<>("");
-        return Observable.just(d2.eventModule().events.uid(eventUid).get().program())
-                .flatMap(programUid -> {
-                            selectedProgramUid.set(programUid);
-                            return briteDatabase.createQuery(ProgramRuleVariableModel.TABLE,
-                                    "SELECT * FROM ProgramRuleVariable WHERE program = ? AND dataElement = ?", programUid, lastUpdatedElement)
-                                    .mapToList(cursor -> "%" + ProgramRuleVariableModel.create(cursor).displayName() + "%");
-                        }
-                ).flatMap(variableList -> {
-                    String likeCondition = "condition LIKE '%s' OR data LIKE '%s'";
-                    StringBuilder st = new StringBuilder();
-                    for (int i = 0; i < variableList.size(); i++) {
-                        st.append(String.format(likeCondition, variableList.get(i), variableList.get(i)));
-                        if (i != variableList.size() - 1)
-                            st.append(" OR ");
-                    }
-
-                    if (!isEmpty(st))
-                        return briteDatabase.createQuery(ProgramRuleModel.TABLE,
-                                String.format("SELECT ProgramRule.* FROM ProgramRule " +
-                                        "LEFT JOIN ProgramRuleAction ON ProgramRuleAction.programRule = ProgramRule.uid " +
-                                        "WHERE program = ? AND %s", st.toString()), selectedProgramUid.get())
-                                .mapToList(cursor -> {
-                                    ProgramRuleModel ruleModel = ProgramRuleModel.create(cursor);
-                                    List<RuleAction> ruleActions = new ArrayList<>();
-                                    Cursor actionsCursor = briteDatabase.query(
-                                            "SELECT " +
-                                                    "ProgramRuleAction.programRule, " +
-                                                    "ProgramRuleAction.programStage, " +
-                                                    "ProgramRuleAction.programStageSection, " +
-                                                    "ProgramRuleAction.programRuleActionType, " +
-                                                    "ProgramRuleAction.programIndicator, " +
-                                                    "ProgramRuleAction.trackedEntityAttribute, " +
-                                                    "ProgramRuleAction.dataElement, " +
-                                                    "ProgramRuleAction.location, " +
-                                                    "ProgramRuleAction.content, " +
-                                                    "ProgramRuleAction.data " +
-                                                    "FROM ProgramRuleAction WHERE programRule = ?", ruleModel.uid());
-                                    if (actionsCursor != null) {
-                                        if (actionsCursor.moveToFirst()) {
-                                            for (int i = 0; i < actionsCursor.getCount(); i++) {
-                                                ruleActions.add(RulesRepository.create(actionsCursor));
-                                                actionsCursor.moveToNext();
-                                            }
-                                        }
-                                        actionsCursor.close();
-                                    }
-
-                                    return Rule.create(ruleModel.programStage(), ruleModel.priority(), ruleModel.condition(), ruleActions, ruleModel.displayName());
-                                });
-                    else
-                        return Observable.just(new ArrayList<Rule>());
-                }).map(ruleList -> {
-                    Map<String, Rule> ruleMap = new HashMap<>();
-                    for (Rule rule : ruleList)
-                        ruleMap.put(rule.name(), rule);
-
-                    Cursor hideRulesCursor = briteDatabase.query("SELECT ProgramRule.* FROM ProgramRule " +
-                                    "JOIN ProgramRuleAction ON ProgramRuleAction.programRule = ProgramRule.uid " +
-                                    "WHERE ProgramRule.program = ? " +
-                                    "AND ProgramRuleAction.programRuleActionType IN (?,?,?,?,?)",
-                            selectedProgramUid.get(),
-                            ProgramRuleActionType.HIDEFIELD.name(), ProgramRuleActionType.HIDESECTION.name(),
-                            ProgramRuleActionType.ASSIGN.name(), ProgramRuleActionType.SHOWERROR.name(),
-                            ProgramRuleActionType.SHOWWARNING.name());
-                    if (hideRulesCursor != null) {
-                        if (hideRulesCursor.moveToFirst()) {
-                            for (int i = 0; i < hideRulesCursor.getCount(); i++) {
-                                ProgramRuleModel ruleModel = ProgramRuleModel.create(hideRulesCursor);
-                                ruleMap.put(ruleModel.displayName(), Rule.create(ruleModel.programStage(), ruleModel.priority(), ruleModel.condition(), getRuleActionsFor(ruleModel.uid()), ruleModel.displayName()));
-                                hideRulesCursor.moveToNext();
-                            }
-                        }
-                        hideRulesCursor.close();
-                    }
-                    return (List<Rule>) new ArrayList<>(ruleMap.values());
-                }).toFlowable(BackpressureStrategy.LATEST);
-    }
-
-    private List<RuleAction> getRuleActionsFor(String programRuleUid) {
-        List<RuleAction> ruleActions = new ArrayList<>();
-        List<ProgramRuleAction> ruleActionsModule = d2.programModule().programRules.uid(programRuleUid).getWithAllChildren().programRuleActions();
-        for (ProgramRuleAction ruleAction : ruleActionsModule) {
-            ruleActions.add(RulesRepository.create(ruleAction.programRuleActionType(),
-                    ruleAction.programStage() != null ? ruleAction.programStage().uid() : null,
-                    ruleAction.programStageSection() != null ? ruleAction.programStageSection().uid() : null,
-                    ruleAction.trackedEntityAttribute() != null ? ruleAction.trackedEntityAttribute().uid() : null,
-                    ruleAction.dataElement() != null ? ruleAction.dataElement().uid() : null,
-                    ruleAction.location(), ruleAction.content(), ruleAction.data()));
-        }
-
-        return ruleActions;
+        return ruleEngineRepository.calculate();
     }
 
     @Override
     public Observable<Boolean> completeEvent() {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(EventModel.Columns.STATUS, EventStatus.COMPLETED.name());
-        String completeDate = DateUtils.databaseDateFormat().format(DateUtils.getInstance().getToday());
-        contentValues.put(EventModel.Columns.COMPLETE_DATE, completeDate);
-        return Observable.just(briteDatabase.update(EventModel.TABLE, contentValues, "uid = ?", eventUid) > 0);
+        return Observable.fromCallable(() -> {
+            try {
+                d2.eventModule().events().uid(currentEvent.uid()).setStatus(EventStatus.COMPLETED);
+                return true;
+            } catch (D2Error d2Error) {
+                d2Error.printStackTrace();
+                return false;
+            }
+        });
     }
 
     @Override
     public boolean reopenEvent() {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(EventModel.Columns.STATUS, EventStatus.ACTIVE.name());
-        return briteDatabase.update(EventModel.TABLE, contentValues, "uid = ?", eventUid) > 0;
+        try {
+            d2.eventModule().events().uid(currentEvent.uid())
+                    .setStatus(EventStatus.ACTIVE);
+            return true;
+        } catch (D2Error d2Error) {
+            d2Error.printStackTrace();
+            return false;
+        }
     }
 
     @Override
     public Observable<Boolean> deleteEvent() {
-        Cursor eventCursor = briteDatabase.query("SELECT Event.* FROM Event WHERE Event.uid = ?", eventUid);
-        long status = -1;
-        if (eventCursor != null && eventCursor.moveToNext()) {
-            EventModel eventModel = EventModel.create(eventCursor);
-            if (eventModel.state() == State.TO_POST) {
-                String DELETE_WHERE = String.format(
-                        "%s.%s = ?",
-                        EventModel.TABLE, EventModel.Columns.UID
-                );
-                status = briteDatabase.delete(EventModel.TABLE, DELETE_WHERE, eventUid);
-            } else {
-                ContentValues contentValues = eventModel.toContentValues();
-                contentValues.put(EventModel.Columns.STATE, State.TO_DELETE.name());
-                status = briteDatabase.update(EventModel.TABLE, contentValues, EventModel.Columns.UID + " = ?", eventUid);
-            }
-            if (status == 1 && eventModel.enrollment() != null)
-                updateEnrollment(eventModel.enrollment());
-        }
-        return Observable.just(status == 1);
-    }
-
-    private void updateEnrollment(String enrollmentUid) {
-        String SELECT_ENROLLMENT = "SELECT *\n" +
-                "FROM Enrollment\n" +
-                "WHERE uid = ? LIMIT 1;";
-        Cursor enrollmentCursor = briteDatabase.query(SELECT_ENROLLMENT, enrollmentUid);
-        if (enrollmentCursor != null && enrollmentCursor.moveToFirst()) {
-            EnrollmentModel enrollmentModel = EnrollmentModel.create(enrollmentCursor);
-
-            ContentValues cv = enrollmentModel.toContentValues();
-            cv.put(EnrollmentModel.Columns.LAST_UPDATED, DateUtils.databaseDateFormat().format(Calendar.getInstance().getTime()));
-            cv.put(EnrollmentModel.Columns.STATE, enrollmentModel.state() == State.TO_POST ? State.TO_POST.name() : State.TO_UPDATE.name());
-            briteDatabase.update(EnrollmentModel.TABLE, cv, "uid = ?", enrollmentUid);
-
-            enrollmentCursor.close();
-
-            updateTei(enrollmentModel.trackedEntityInstance());
-        }
-
-    }
-
-    private void updateTei(String teiUid) {
-        String selectTei = "SELECT * FROM TrackedEntityInstance WHERE uid = ?";
-        Cursor teiCursor = briteDatabase.query(selectTei, teiUid);
-        if (teiCursor != null && teiCursor.moveToFirst()) {
-            TrackedEntityInstanceModel teiModel = TrackedEntityInstanceModel.create(teiCursor);
-            ContentValues cv = teiModel.toContentValues();
-            cv.put(TrackedEntityInstanceModel.Columns.LAST_UPDATED, DateUtils.databaseDateFormat().format(Calendar.getInstance().getTime()));
-            cv.put(TrackedEntityInstanceModel.Columns.STATE,
-                    teiModel.state() == State.TO_POST ? State.TO_POST.name() : State.TO_UPDATE.name());
-            briteDatabase.update(TrackedEntityInstanceModel.TABLE, cv, "uid = ?", teiUid);
-            teiCursor.close();
-        }
+        return d2.eventModule().events().uid(eventUid).delete()
+                .andThen(Observable.just(true));
     }
 
     @Override
     public Observable<Boolean> updateEventStatus(EventStatus status) {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(EventModel.Columns.STATUS, status.name());
-        String updateDate = DateUtils.databaseDateFormat().format(Calendar.getInstance().getTime());
-        contentValues.put(EventModel.Columns.LAST_UPDATED, updateDate);
-        return Observable.just(briteDatabase.update(EventModel.TABLE, contentValues, "uid = ?", eventUid) > 0);
+
+        return Observable.fromCallable(() -> {
+            d2.eventModule().events().uid(currentEvent.uid())
+                    .setStatus(status);
+            return true;
+        });
     }
 
     @Override
     public Observable<Boolean> rescheduleEvent(Date newDate) {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(EventModel.Columns.DUE_DATE, DateUtils.databaseDateFormat().format(newDate));
-        return Observable.just(briteDatabase.update(EventModel.TABLE, contentValues, "uid = ?", eventUid))
-                .flatMap(result -> updateEventStatus(EventStatus.SCHEDULE));
+        return Observable.fromCallable(() -> {
+            d2.eventModule().events().uid(currentEvent.uid())
+                    .setDueDate(newDate);
+            d2.eventModule().events().uid(currentEvent.uid())
+                    .setStatus(EventStatus.SCHEDULE);
+            return true;
+        });
     }
 
     @Override
     public Observable<String> programStage() {
-        return Observable.defer(() -> Observable.just(d2.eventModule().events.uid(eventUid).get().programStage()));
+        return Observable.just(currentEvent.programStage());
     }
 
     @Override
     public boolean getAccessDataWrite() {
-        boolean canWrite;
-        canWrite =
-                d2.programModule().programs.uid(
-                        d2.eventModule().events.uid(eventUid).get().program()
-                ).get().access().data().write();
-        if (canWrite)
-            canWrite =
-                    d2.programModule().programStages.uid(
-                            d2.eventModule().events.uid(eventUid).get().programStage()
-                    ).get().access().data().write();
-
-        return canWrite;
-    }
-
-    @Override
-    public void setLastUpdated(String lastUpdatedUid) {
-        this.lastUpdatedUid = lastUpdatedUid;
+        return d2.eventModule().eventService().blockingHasDataWriteAccess(eventUid);
     }
 
     @Override
     public Flowable<EventStatus> eventStatus() {
-        return briteDatabase.createQuery(EventModel.TABLE, "SELECT Event.status FROM Event WHERE Event.uid = ?", eventUid)
-                .mapToOne(cursor -> EventStatus.valueOf(cursor.getString(0)))
-                .toFlowable(BackpressureStrategy.LATEST);
+        return Flowable.just(currentEvent.status());
     }
 
-    private static final String QUERY_EVENT = "SELECT Event.uid,\n" +
-            "  Event.programStage,\n" +
-            "  Event.status,\n" +
-            "  Event.eventDate,\n" +
-            "  Event.dueDate,\n" +
-            "  Event.organisationUnit,\n" +
-            "  ProgramStage.displayName\n" +
-            "FROM Event\n" +
-            "JOIN ProgramStage ON ProgramStage.uid = Event.programStage\n" +
-            "WHERE Event.uid = ?\n" +
-            "AND " + EventModel.TABLE + "." + EventModel.Columns.STATE + " != '" + State.TO_DELETE + "'\n" +
-            "LIMIT 1;";
-
-    @NonNull
-    private Flowable<RuleEvent> queryEvent(@NonNull List<RuleDataValue> dataValues) {
-        return briteDatabase.createQuery(EventModel.TABLE, QUERY_EVENT, eventUid == null ? "" : eventUid)
-                .mapToOne(cursor -> {
-                    Date eventDate = cursor.isNull(3) ? parseDate(cursor.getString(4)) : parseDate(cursor.getString(3));
-                    Date dueDate = cursor.isNull(4) ? eventDate : parseDate(cursor.getString(4));
-                    String orgUnit = cursor.getString(5);
-                    String orgUnitCode = getOrgUnitCode(orgUnit);
-                    String programStageName = cursor.getString(6);
-                    RuleEvent.Status status = RuleEvent.Status.valueOf(cursor.getString(2));
-
-                    return RuleEvent.builder()
-                            .event(cursor.getString(0))
-                            .programStage(cursor.getString(1))
-                            .programStageName(programStageName)
-                            .status(status)
-                            .eventDate(eventDate)
-                            .dueDate(dueDate)
-                            .organisationUnit(orgUnit)
-                            .organisationUnitCode(orgUnitCode)
-                            .dataValues(dataValues)
-                            .build();
-
-                }).toFlowable(BackpressureStrategy.LATEST);
-    }
-
-    @Nonnull
-    private String getOrgUnitCode(String orgUnitUid) {
-        String ouCode = "";
-        Cursor cursor = briteDatabase.query("SELECT code FROM OrganisationUnit WHERE uid = ? LIMIT 1", orgUnitUid);
-        if (cursor != null && cursor.moveToFirst() && cursor.getString(0) != null) {
-            ouCode = cursor.getString(0);
-            cursor.close();
+    @Override
+    public String getSectionFor(String field) {
+        String sectionToReturn = "NO_SECTION";
+        for (ProgramStageSection section : sectionMap.values()) {
+            if (UidsHelper.getUidsList(section.dataElements()).contains(field)) {
+                sectionToReturn = section.uid();
+                break;
+            }
         }
-        return ouCode;
+        return sectionToReturn;
     }
 
-    private static final String QUERY_VALUES = "SELECT " +
-            "  eventDate," +
-            "  programStage," +
-            "  dataElement," +
-            "  value" +
-            " FROM TrackedEntityDataValue " +
-            "  INNER JOIN Event ON TrackedEntityDataValue.event = Event.uid " +
-            " WHERE event = ? AND value IS NOT NULL AND " + EventModel.TABLE + "." + EventModel.Columns.STATE + " != '" + State.TO_DELETE + "';";
-
-    @NonNull
-    private Flowable<List<RuleDataValue>> queryDataValues(String eventUid) {
-        return briteDatabase.createQuery(Arrays.asList(EventModel.TABLE,
-                TrackedEntityDataValueModel.TABLE), QUERY_VALUES, eventUid == null ? "" : eventUid)
-                .mapToList(cursor -> {
-                    Date eventDate = parseDate(cursor.getString(0));
-                    return RuleDataValue.create(eventDate, cursor.getString(1),
-                            cursor.getString(2), cursor.getString(3));
-                }).toFlowable(BackpressureStrategy.LATEST);
+    @Override
+    public Single<Boolean> canReOpenEvent() {
+        return Single.fromCallable(() -> d2.userModule().authorities()
+                .byName().in(AuthoritiesKt.AUTH_UNCOMPLETE_EVENT, AuthoritiesKt.AUTH_ALL).one().blockingExists()
+        );
     }
 
-    @NonNull
-    private static Date parseDate(@NonNull String date) {
-        try {
-            return BaseIdentifiableObject.DATE_FORMAT.parse(date);
-        } catch (ParseException parseException) {
-            throw new RuntimeException(parseException);
+    @Override
+    public Observable<Boolean> isCompletedEventExpired(String eventUid) {
+        return d2.eventModule().eventService().getEditableStatus(eventUid).map(editionStatus -> {
+            if (editionStatus instanceof EventEditableStatus.NonEditable) {
+                return ((EventEditableStatus.NonEditable) editionStatus).getReason() == EventNonEditableReason.EXPIRED;
+            } else {
+                return false;
+            }
+        }).toObservable();
+    }
+
+    @Override
+    public Flowable<Boolean> eventIntegrityCheck() {
+        return Flowable.just(currentEvent).map(event ->
+                (event.status() == EventStatus.COMPLETED ||
+                        event.status() == EventStatus.ACTIVE) &&
+                        event.eventDate() != null && !event.eventDate().after(new Date())
+        );
+    }
+
+    @Override
+    public Single<Integer> getNoteCount() {
+        return d2.noteModule().notes().byEventUid().eq(eventUid).count();
+    }
+
+    @Override
+    public List<String> getOptionsFromGroups(List<String> optionGroupUids) {
+        List<String> optionsFromGroups = new ArrayList<>();
+        List<OptionGroup> optionGroups = d2.optionModule().optionGroups().withOptions().byUid().in(optionGroupUids).blockingGet();
+        for (OptionGroup optionGroup : optionGroups) {
+            for (ObjectWithUid option : optionGroup.options()) {
+                if (!optionsFromGroups.contains(option.uid())) {
+                    optionsFromGroups.add(option.uid());
+                }
+            }
         }
+        return optionsFromGroups;
     }
 
-    private HashMap<String, Pair<FormSectionViewModel, Boolean>> switchToMap(List<FormSectionViewModel> list) {
-        HashMap<String, Pair<FormSectionViewModel, Boolean>> sectionsMap = new HashMap<>();
-        for (FormSectionViewModel formSection : list) {
-            sectionsMap.put(formSection.sectionUid(), Pair.create(formSection, true));
+    @Override
+    public boolean showCompletionPercentage() {
+        if (d2.settingModule().appearanceSettings().blockingExists()) {
+            return d2.settingModule().appearanceSettings().getCompletionSpinnerByUid(
+                    currentEvent.program()
+            ).visible();
         }
-        return sectionsMap;
+        return true;
     }
 
-    @NonNull
-    private FormSectionViewModel mapToFormSectionViewModels(@NonNull Cursor cursor) {
-        // GET PROGRAMSTAGE DISPLAYNAME IN CASE THERE ARE NO SECTIONS
-        if (cursor.getString(2) == null) {
-            // This programstage has no sections
-            return FormSectionViewModel.createForProgramStageWithLabel(eventUid, cursor.getString(4), cursor.getString(1));
-        } else {
-            // This programstage has sections
-            return FormSectionViewModel.createForSection(eventUid, cursor.getString(2), cursor.getString(3), cursor.getString(5));
+    @Override
+    public void updateFieldValue(String uid) {
+        Timber.d("UPDATING VALUE FOR FIELD %s", uid);
+        ListIterator<FieldUiModel> iterator = sectionFields.listIterator();
+        boolean updated = false;
+        while (iterator.hasNext() || !updated) {
+            FieldUiModel fieldViewModel = iterator.next();
+            if (fieldViewModel.getUid().equals(uid)) {
+                TrackedEntityDataValueObjectRepository valueRepository = d2.trackedEntityModule().trackedEntityDataValues().value(eventUid, uid);
+
+                String value = null;
+                String rawValue = null;
+                if (valueRepository.blockingExists()) {
+                    value = valueRepository.blockingGet().value();
+                    rawValue = value;
+                    String friendlyValue = ValueExtensionsKt.userFriendlyValue(ValueExtensionsKt.blockingGetValueCheck(valueRepository, d2, uid), d2);
+
+                    if (fieldViewModel instanceof OrgUnitViewModel && !isEmpty(value)) {
+                        value = value + "_ou_" + friendlyValue;
+                    } else {
+                        value = friendlyValue;
+                    }
+                }
+
+                String error = checkConflicts(uid, valueRepository.blockingExists() ? valueRepository.blockingGet().value() : null);
+
+                fieldViewModel = fieldViewModel.setValue(value).setEditable(fieldViewModel.getEditable() || isEventEditable);
+                if (!error.isEmpty()) {
+                    fieldViewModel = fieldViewModel.setError(error);
+                }
+                if (fieldViewModel.hasLegend()) {
+                    LegendValue legend = getColorByLegend(rawValue, fieldViewModel.getUid());
+                    fieldViewModel = fieldViewModel.setLegend(legend);
+                }
+
+                iterator.set(fieldViewModel);
+                updated = true;
+                Timber.d("DONE FOR FIELD %s", uid);
+            }
         }
     }
 }
+

@@ -13,51 +13,19 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <include
-            android:id="@+id/currentSectionTitle"
-            layout="@layout/item_section_selector"
-            android:layout_width="0dp"
-            android:layout_height="@dimen/itemSectionSelectorHeight"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:presenter="@{presenter}" />
-
-        <androidx.core.widget.ContentLoadingProgressBar
-            android:layout_width="200dp"
-            android:layout_height="200dp" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/formRecycler"
+        <org.dhis2.data.forms.dataentry.FormView
+            android:id="@+id/formView"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-            app:layout_constraintBottom_toTopOf="@id/sectionSelector"
-            app:layout_constraintTop_toBottomOf="@id/currentSectionTitle"
-            tools:listitem="@layout/custom_text_view" />
-
-        <include
-            android:id="@+id/sectionSelector"
-            layout="@layout/section_selector"
-            android:layout_width="0dp"
-            android:layout_height="@dimen/sectionSelectorHeight"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:presenter="@{presenter}" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/sectionRecycler"
-            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginBottom="100dp"
-            android:visibility="gone"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:listitem="@layout/item_section_selector"
-            tools:visibility="visible" />
+            android:clipToPadding="false"
+            android:background="@color/form_field_background"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <FrameLayout
+            android:id="@+id/header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent"/>
 
 
         <ProgressBar
@@ -72,6 +40,19 @@
             app:layout_constraintTop_toTopOf="parent"
             app:progressColor="@{@color/colorPrimary}"
             tools:visibility="visible" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/actionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="?colorPrimary"
+            app:fabSize="normal"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:srcCompat="@drawable/ic_save"
+            app:tint="?colorAccent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

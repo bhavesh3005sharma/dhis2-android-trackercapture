@@ -48,10 +48,6 @@ public class ReservedValuesWorker extends Worker {
         triggerNotification(
                 getApplicationContext().getString(R.string.app_name),
                 "syncing reserved values");
-        LocalBroadcastManager.getInstance(getApplicationContext())
-                .sendBroadcast(new Intent("action_sync_rv")
-                        .putExtra("dataSyncInProgress", true)
-                );
 
         try {
             presenter.syncReservedValues();
@@ -59,13 +55,9 @@ public class ReservedValuesWorker extends Worker {
             Timber.e(e);
         }
 
-        LocalBroadcastManager.getInstance(getApplicationContext())
-                .sendBroadcast(new Intent("action_sync_rv")
-                        .putExtra("rvSyncInProgress", false));
-
         cancelNotification();
 
-        return Result.SUCCESS;
+        return Result.success();
     }
 
     private void triggerNotification(String title, String content) {

@@ -2,55 +2,55 @@ package org.dhis2.usescases.searchTrackEntity;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
+import androidx.paging.PagedList;
 
+import org.dhis2.data.search.SearchParametersModel;
+import org.dhis2.data.tuples.Pair;
+import org.dhis2.form.model.FieldUiModel;
 import org.dhis2.usescases.searchTrackEntity.adapters.SearchTeiModel;
-
-import org.hisp.dhis.android.core.option.OptionModel;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
-import org.hisp.dhis.android.core.program.ProgramModel;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttribute;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeModel;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstanceModel;
+import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.teievents.EventViewModel;
+import org.dhis2.utils.filters.sorting.SortingItem;
+import org.hisp.dhis.android.core.arch.call.D2Progress;
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
+import org.hisp.dhis.android.core.program.Program;
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityType;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
 
-/**
- * QUADRAM. Created by ppajuelo on 02/11/2017.
- */
-
 public interface SearchRepository {
 
-    @NonNull
-    Observable<List<TrackedEntityAttributeModel>> programAttributes(String programId);
+    Observable<List<FieldUiModel>> searchFields(@Nullable String programUid, Map<String, String> currentSearchValues);
 
-    Observable<List<TrackedEntityAttributeModel>> programAttributes();
-
-    Observable<List<OptionModel>> optionSet(String optionSetId);
-
-    Observable<List<ProgramModel>> programsWithRegistration(String programTypeId);
-
-    Observable<List<TrackedEntityInstanceModel>> trackedEntityInstances(@NonNull String teType,
-                                                                        @Nullable ProgramModel selectedProgram,
-                                                                        @Nullable HashMap<String, String> queryData, Integer page);
-
-    Observable<List<TrackedEntityInstanceModel>> trackedEntityInstancesToUpdate(@NonNull String teType,
-                                                                                @Nullable ProgramModel selectedProgram,
-                                                                                @Nullable HashMap<String, String> queryData, int listSize);
+    Observable<List<Program>> programsWithRegistration(String programTypeId);
 
     @NonNull
-    Observable<String> saveToEnroll(@NonNull String teiType, @NonNull String orgUnitUID, @NonNull String programUid, @Nullable String teiUid, HashMap<String, String> queryDatam,Date enrollmentDate);
+    LiveData<PagedList<SearchTeiModel>> searchTrackedEntities(SearchParametersModel searchParametersModel, boolean isOnline);
 
-    Observable<List<OrganisationUnitModel>> getOrgUnits(@Nullable String selectedProgramUid);
+    @NonNull
+    Flowable<List<SearchTeiModel>> searchTeiForMap(SearchParametersModel searchParametersModel, boolean isOnline);
 
-    Flowable<List<SearchTeiModel>> transformIntoModel(List<SearchTeiModel> teiList, @Nullable ProgramModel selectedProgram);
+    SearchTeiModel getTrackedEntityInfo(String teiUid, Program selectedProgram, SortingItem sortingItem);
+
+    @NonNull
+    Observable<Pair<String, String>> saveToEnroll(@NonNull String teiType, @NonNull String orgUnitUID, @NonNull String programUid, @Nullable String teiUid, HashMap<String, String> queryDatam, Date enrollmentDate, @Nullable String fromRelationshipUid);
+
+    Observable<List<OrganisationUnit>> getOrgUnits(@Nullable String selectedProgramUid);
 
     String getProgramColor(@NonNull String programUid);
 
-    Observable<List<TrackedEntityAttributeModel>> trackedEntityTypeAttributes();
+
+    Observable<TrackedEntityType> getTrackedEntityType(String trackedEntityUid);
+
+    List<EventViewModel> getEventsForMap(List<SearchTeiModel> teis);
+
+    EventViewModel getEventInfo(String enrollmentUid);
+
+    Observable<D2Progress> downloadTei(String teiUid);
 }

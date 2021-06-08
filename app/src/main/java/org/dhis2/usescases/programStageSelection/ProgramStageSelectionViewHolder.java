@@ -6,12 +6,16 @@ import android.graphics.Color;
 
 import org.dhis2.BR;
 import org.dhis2.Bindings.Bindings;
+import org.dhis2.R;
 import org.dhis2.databinding.ItemProgramStageBinding;
-import org.hisp.dhis.android.core.common.ObjectStyleModel;
-import org.hisp.dhis.android.core.program.ProgramStageModel;
+import org.dhis2.utils.resources.ResourceManager;
+import org.hisp.dhis.android.core.common.ObjectStyle;
+import org.hisp.dhis.android.core.program.ProgramStage;
 
 import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
+
+import timber.log.Timber;
 
 /**
  * QUADRAM. Created by Cristian on 13/02/2018.
@@ -26,20 +30,28 @@ public class ProgramStageSelectionViewHolder extends RecyclerView.ViewHolder {
         this.binding = binding;
     }
 
-    public void bind(ProgramStageSelectionContract.Presenter presenter, ProgramStageModel programStage, ObjectStyleModel data) {
+    public void bind(ProgramStageSelectionContract.Presenter presenter, ProgramStage programStage) {
         binding.setVariable(BR.presenter, presenter);
         binding.setVariable(BR.programStage, programStage);
         binding.executePendingBindings();
+        ObjectStyle style;
+        if(programStage.style() != null)
+            style = programStage.style();
+        else
+            style = ObjectStyle.builder().build();
 
-        if (data.icon() != null) {
-            Resources resources = binding.programStageIcon.getContext().getResources();
-            String iconName = data.icon().startsWith("ic_") ? data.icon() : "ic_" + data.icon();
-            int icon = resources.getIdentifier(iconName, "drawable", binding.programStageIcon.getContext().getPackageName());
-            binding.programStageIcon.setImageResource(icon);
+        if (style.icon() != null) {
+            try {
+                int icon = new ResourceManager(binding.programStageIcon.getContext())
+                        .getObjectStyleDrawableResource(style.icon(), R.drawable.ic_default_icon);
+                binding.programStageIcon.setImageResource(icon);
+            }catch (Exception e){
+                Timber.e(e);
+            }
         }
 
-        if (data.color() != null) {
-            String color = data.color().startsWith("#") ? data.color() : "#" + data.color();
+        if (style.color() != null) {
+            String color = style.color().startsWith("#") ? style.color() : "#" + style.color();
             int colorRes = Color.parseColor(color);
             ColorStateList colorStateList = ColorStateList.valueOf(colorRes);
             ViewCompat.setBackgroundTintList(binding.programStageIcon, colorStateList);
@@ -47,7 +59,7 @@ public class ProgramStageSelectionViewHolder extends RecyclerView.ViewHolder {
         }
 
         itemView.setOnClickListener(view -> {
-            if (programStage.accessDataWrite())
+            if (programStage.access().data().write())
                 presenter.onProgramStageClick(programStage);
             else
                 presenter.displayMessage(null);

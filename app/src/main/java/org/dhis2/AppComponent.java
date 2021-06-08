@@ -1,18 +1,31 @@
 package org.dhis2;
 
-import org.dhis2.data.database.DbModule;
-import org.dhis2.data.metadata.MetadataModule;
-import org.dhis2.data.qr.QRModule;
+import org.dhis2.data.forms.dataentry.validation.ValidatorModule;
+import org.dhis2.data.location.LocationModule;
+import org.dhis2.data.location.LocationProvider;
+import org.dhis2.data.prefs.PreferenceModule;
+import org.dhis2.data.prefs.PreferenceProvider;
 import org.dhis2.data.schedulers.SchedulerModule;
 import org.dhis2.data.server.ServerComponent;
 import org.dhis2.data.server.ServerModule;
+import org.dhis2.data.service.workManager.WorkManagerController;
+import org.dhis2.data.service.workManager.WorkManagerModule;
 import org.dhis2.usescases.login.LoginComponent;
 import org.dhis2.usescases.login.LoginModule;
 import org.dhis2.usescases.splash.SplashComponent;
 import org.dhis2.usescases.splash.SplashModule;
-import org.dhis2.usescases.sync.SyncComponent;
-import org.dhis2.usescases.sync.SyncModule;
-import org.dhis2.utils.UtilsModule;
+import org.dhis2.utils.Validator;
+import org.dhis2.utils.analytics.AnalyticsModule;
+import org.dhis2.utils.analytics.matomo.MatomoAnalyticsController;
+import org.dhis2.utils.analytics.matomo.MatomoAnalyticsModule;
+import org.dhis2.utils.filters.FilterModule;
+import org.dhis2.utils.reporting.CrashReportController;
+import org.dhis2.utils.reporting.CrashReportModule;
+import org.dhis2.utils.session.PinModule;
+import org.dhis2.utils.session.SessionComponent;
+import org.hisp.dhis.android.core.common.ValueType;
+
+import java.util.Map;
 
 import javax.inject.Singleton;
 
@@ -23,7 +36,16 @@ import dagger.Component;
  */
 @Singleton
 @Component(modules = {
-        AppModule.class, DbModule.class, SchedulerModule.class, UtilsModule.class, MetadataModule.class, QRModule.class
+        AppModule.class,
+        SchedulerModule.class,
+        AnalyticsModule.class,
+        PreferenceModule.class,
+        WorkManagerModule.class,
+        MatomoAnalyticsModule.class,
+        ValidatorModule.class,
+        CrashReportModule.class,
+        LocationModule.class,
+        FilterModule.class
 })
 public interface AppComponent {
 
@@ -31,18 +53,30 @@ public interface AppComponent {
     interface Builder {
         Builder appModule(AppModule appModule);
 
-        Builder dbModule(DbModule dbModule);
-
         Builder schedulerModule(SchedulerModule schedulerModule);
 
-        Builder utilModule(UtilsModule utilsModule);
+        Builder analyticsModule(AnalyticsModule module);
 
-        Builder metadataModule(MetadataModule metadataModule);
+        Builder preferenceModule(PreferenceModule preferenceModule);
 
-        Builder qrModule(QRModule qrModule);
+        Builder workManagerController(WorkManagerModule workManagerModule);
+
+        Builder crashReportModule(CrashReportModule crashReportModule);
 
         AppComponent build();
     }
+
+    Map<ValueType, Validator> injectValidators();
+
+    CrashReportController injectCrashReportController();
+
+    PreferenceProvider preferenceProvider();
+
+    WorkManagerController workManagerController();
+
+    MatomoAnalyticsController matomoController();
+
+    LocationProvider locationProvider();
 
     //injection targets
     void inject(App app);
@@ -54,6 +88,5 @@ public interface AppComponent {
 
     LoginComponent plus(LoginModule loginContractsModule);
 
-    SyncComponent plus(SyncModule syncModule);
-
+    SessionComponent plus(PinModule pinModule);
 }

@@ -1,73 +1,61 @@
 package org.dhis2.usescases.programEventDetail;
 
-import android.annotation.SuppressLint;
-import android.app.DatePickerDialog;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.graphics.PorterDuff;
-import android.graphics.drawable.Drawable;
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.transition.ChangeBounds;
+import android.transition.Transition;
+import android.transition.TransitionManager;
+import android.util.SparseBooleanArray;
 import android.view.View;
-import android.widget.AdapterView;
-
-import com.unnamed.b.atv.model.TreeNode;
-import com.unnamed.b.atv.view.AndroidTreeView;
-
-import org.dhis2.App;
-import org.dhis2.BuildConfig;
-import org.dhis2.R;
-import org.dhis2.data.tuples.Pair;
-import org.dhis2.databinding.ActivityProgramEventDetailBinding;
-import org.dhis2.usescases.general.ActivityGlobalAbstract;
-import org.dhis2.usescases.main.program.OrgUnitHolder;
-import org.dhis2.utils.CatComboAdapter;
-import org.dhis2.utils.Constants;
-import org.dhis2.utils.DateUtils;
-import org.dhis2.utils.EndlessRecyclerViewScrollListener;
-import org.dhis2.utils.HelpManager;
-import org.dhis2.utils.Period;
-import org.dhis2.utils.custom_views.RxDateDialog;
-import org.hisp.dhis.android.core.category.CategoryComboModel;
-import org.hisp.dhis.android.core.category.CategoryOptionComboModel;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
-import org.hisp.dhis.android.core.program.ProgramModel;
-
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-
-import javax.inject.Inject;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
-import androidx.core.content.res.ResourcesCompat;
-import androidx.core.view.GravityCompat;
+import androidx.constraintlayout.widget.ConstraintSet;
+import androidx.core.view.ViewCompat;
 import androidx.databinding.DataBindingUtil;
-import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.recyclerview.widget.DividerItemDecoration;
-import androidx.recyclerview.widget.RecyclerView;
-import io.reactivex.Flowable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.processors.PublishProcessor;
-import me.toptas.fancyshowcase.FancyShowCaseView;
-import timber.log.Timber;
+import androidx.lifecycle.ViewModelProviders;
 
-import static org.dhis2.utils.Period.DAILY;
-import static org.dhis2.utils.Period.MONTHLY;
-import static org.dhis2.utils.Period.NONE;
-import static org.dhis2.utils.Period.WEEKLY;
-import static org.dhis2.utils.Period.YEARLY;
+import org.dhis2.App;
+import org.dhis2.Bindings.ExtensionsKt;
+import org.dhis2.Bindings.ViewExtensionsKt;
+import org.dhis2.R;
+import org.dhis2.databinding.ActivityProgramEventDetailBinding;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventCaptureActivity;
+import org.dhis2.usescases.eventsWithoutRegistration.eventInitial.EventInitialActivity;
+import org.dhis2.usescases.general.ActivityGlobalAbstract;
+import org.dhis2.usescases.orgunitselector.OUTreeActivity;
+import org.dhis2.usescases.programEventDetail.eventList.EventListFragment;
+import org.dhis2.usescases.programEventDetail.eventMap.EventMapFragment;
+import org.dhis2.utils.AppMenuHelper;
+import org.dhis2.utils.Constants;
+import org.dhis2.utils.DateUtils;
+import org.dhis2.utils.EventMode;
+import org.dhis2.utils.HelpManager;
+import org.dhis2.utils.analytics.AnalyticsConstants;
+import org.dhis2.utils.category.CategoryDialog;
+import org.dhis2.utils.filters.FilterItem;
+import org.dhis2.utils.filters.FilterManager;
+import org.dhis2.utils.filters.FiltersAdapter;
+import org.dhis2.utils.granularsync.SyncStatusDialog;
+import org.hisp.dhis.android.core.common.FeatureType;
+import org.hisp.dhis.android.core.program.Program;
 
-/**
- * QUADRAM. Created by Cristian on 13/02/2018.
- */
+import java.util.List;
+
+import javax.inject.Inject;
+
+import static android.view.View.GONE;
+import static org.dhis2.R.layout.activity_program_event_detail;
+import static org.dhis2.utils.Constants.ORG_UNIT;
+import static org.dhis2.utils.Constants.PROGRAM_UID;
+import static org.dhis2.utils.analytics.AnalyticsConstants.CLICK;
+import static org.dhis2.utils.analytics.AnalyticsConstants.SHOW_HELP;
 
 public class ProgramEventDetailActivity extends ActivityGlobalAbstract implements ProgramEventDetailContract.View {
+
+    private static final String FRAGMENT_TAG = "SYNC";
 
     private ActivityProgramEventDetailBinding binding;
 
@@ -75,332 +63,122 @@ public class ProgramEventDetailActivity extends ActivityGlobalAbstract implement
     ProgramEventDetailContract.Presenter presenter;
 
     @Inject
-    ProgramEventDetailAdapter adapter;
-    private Period currentPeriod = Period.NONE;
+    FiltersAdapter filtersAdapter;
 
-    private Date chosenDateDay = new Date();
-    private ArrayList<Date> chosenDateWeek = new ArrayList<>();
-    private ArrayList<Date> chosenDateMonth = new ArrayList<>();
-    private ArrayList<Date> chosenDateYear = new ArrayList<>();
-    SimpleDateFormat monthFormat = new SimpleDateFormat("yyyy-MM", Locale.getDefault());
-    SimpleDateFormat yearFormat = new SimpleDateFormat("yyyy", Locale.getDefault());
-    private AndroidTreeView treeView;
-    private TreeNode treeNode;
-    private StringBuilder orgUnitFilter = new StringBuilder();
-    private boolean isFilteredByCatCombo = false;
-    private String programId;
-    private static PublishProcessor<Integer> pageProcessor;
-    private EndlessRecyclerViewScrollListener endlessScrollListener;
+    private boolean backDropActive;
+    private String programUid;
+
+    public static final String EXTRA_PROGRAM_UID = "PROGRAM_UID";
+    private ProgramEventDetailViewModel programEventsViewModel;
+    public ProgramEventDetailComponent component;
+    private boolean isMapVisible = false;
+
+    public static Bundle getBundle(String programUid) {
+        Bundle bundle = new Bundle();
+        bundle.putString(EXTRA_PROGRAM_UID, programUid);
+        return bundle;
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
-        ((App) getApplicationContext()).userComponent().plus(new ProgramEventDetailModule()).inject(this);
-
+        initExtras();
+        initInjection();
         super.onCreate(savedInstanceState);
-        binding = DataBindingUtil.setContentView(this, R.layout.activity_program_event_detail);
+        initEventFilters();
+        initViewModel();
 
-        chosenDateWeek.add(new Date());
-        chosenDateMonth.add(new Date());
-        chosenDateYear.add(new Date());
-
-        programId = getIntent().getStringExtra("PROGRAM_UID");
+        binding = DataBindingUtil.setContentView(this, activity_program_event_detail);
         binding.setPresenter(presenter);
-
-        binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
-
-        pageProcessor = PublishProcessor.create();
-
-        endlessScrollListener = new EndlessRecyclerViewScrollListener(binding.recycler.getLayoutManager(), 2, 0) {
-            @Override
-            public void onLoadMore(int page, int totalItemsCount, RecyclerView view) {
-                pageProcessor.onNext(page);
+        binding.setTotalFilters(FilterManager.getInstance().getTotalFilters());
+        binding.navigationBar.setOnNavigationItemSelectedListener(item -> {
+            switch (item.getItemId()) {
+                case R.id.navigation_list_view:
+                    if(isMapVisible) {
+                        showMap(false);
+                    }
+                    return true;
+                case R.id.navigation_map_view:
+                    if(!isMapVisible) {
+                        showMap(true);
+                    }
+                    return true;
+                default:
+                    return false;
             }
-        };
+        });
+        ViewExtensionsKt.clipWithRoundedCorners(binding.eventsLayout, ExtensionsKt.getDp(16));
+        binding.filterLayout.setAdapter(filtersAdapter);
+        presenter.init();
+        showMap(false);
+    }
+
+    private void initExtras() {
+        this.programUid = getIntent().getStringExtra(EXTRA_PROGRAM_UID);
+    }
+
+    private void initInjection() {
+        component = ((App) getApplicationContext()).userComponent().plus(new ProgramEventDetailModule(this, programUid));
+        component.inject(this);
+    }
+
+    private void initEventFilters() {
+        FilterManager.getInstance().clearCatOptCombo();
+        FilterManager.getInstance().clearEventStatus();
+    }
+
+    private void initViewModel() {
+        programEventsViewModel = ViewModelProviders.of(this).get(ProgramEventDetailViewModel.class);
+        programEventsViewModel.progress().observe(this, showProgress -> {
+            if (showProgress) {
+                binding.toolbarProgress.show();
+            } else {
+                binding.toolbarProgress.hide();
+            }
+        });
+
+        programEventsViewModel.getEventSyncClicked().observe(this, eventUid -> {
+            if (eventUid != null) {
+                presenter.onSyncIconClick(eventUid);
+            }
+        });
+
+        programEventsViewModel.getEventClicked().observe(this, eventData -> {
+            if (eventData != null) {
+                navigateToEvent(eventData.component1(), eventData.component2());
+            }
+        });
+
+        programEventsViewModel.getWritePermission().observe(this, canWrite ->
+                binding.addEventButton.setVisibility(canWrite ? View.VISIBLE : GONE));
+
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        adapter.clearData();
-        presenter.init(this, programId, currentPeriod);
+        binding.addEventButton.setEnabled(true);
+        binding.setTotalFilters(FilterManager.getInstance().getTotalFilters());
     }
 
     @Override
-    protected void onPause() {
+    protected void onDestroy() {
+        super.onDestroy();
         presenter.onDettach();
-        super.onPause();
-        binding.treeViewContainer.removeAllViews();
+        FilterManager.getInstance().clearEventStatus();
+        FilterManager.getInstance().clearCatOptCombo();
+        FilterManager.getInstance().clearWorkingList(false);
+        FilterManager.getInstance().clearAssignToMe();
+        presenter.clearOtherFiltersIfWebAppIsConfig();
     }
 
     @Override
-    public void setData(List<ProgramEventViewModel> events) {
-        if (binding.recycler.getAdapter() == null) {
-            binding.recycler.setAdapter(adapter);
-            binding.recycler.addOnScrollListener(endlessScrollListener);
-            binding.recycler.addItemDecoration(new DividerItemDecoration(getContext(), DividerItemDecoration.VERTICAL));
-        }
-        adapter.setEvents(events, endlessScrollListener.getCurrentPage());
-
-        if (!HelpManager.getInstance().isTutorialReadyForScreen(getClass().getName()))
-            setTutorial();
-    }
-
-
-    @Override
-    public void setProgram(ProgramModel program) {
+    public void setProgram(Program program) {
         binding.setName(program.displayName());
     }
 
     @Override
-    public void openDrawer() {
-        if (!binding.drawerLayout.isDrawerOpen(GravityCompat.END)) {
-            binding.drawerLayout.openDrawer(GravityCompat.END);
-            binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_OPEN);
-        } else {
-            binding.drawerLayout.closeDrawer(GravityCompat.END);
-            binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
-        }
-    }
-
-    @SuppressLint({"CheckResult", "RxLeakedSubscription"})
-    @Override
-    public void showRageDatePicker() {
-        Calendar calendar = Calendar.getInstance();
-        calendar.setMinimalDaysInFirstWeek(7);
-
-        String week = getString(R.string.week);
-        SimpleDateFormat weeklyFormat = new SimpleDateFormat("'" + week + "' w", Locale.getDefault());
-
-        if (currentPeriod != DAILY && currentPeriod != NONE) {
-            new RxDateDialog(getAbstractActivity(), currentPeriod).create().show().subscribe(selectedDates -> {
-                        if (!selectedDates.isEmpty()) {
-                            String textToShow;
-                            if (currentPeriod == WEEKLY) {
-                                textToShow = weeklyFormat.format(selectedDates.get(0)) + ", " + yearFormat.format(selectedDates.get(0));
-                                chosenDateWeek = (ArrayList<Date>) selectedDates;
-                                if (selectedDates.size() > 1)
-                                    textToShow += "... " /*+ weeklyFormat.format(selectedDates.get(1))*/;
-                            } else if (currentPeriod == MONTHLY) {
-                                textToShow = monthFormat.format(selectedDates.get(0));
-                                chosenDateMonth = (ArrayList<Date>) selectedDates;
-                                if (selectedDates.size() > 1)
-                                    textToShow += "... " /*+ monthFormat.format(selectedDates.get(1))*/;
-                            } else {
-                                textToShow = yearFormat.format(selectedDates.get(0));
-                                chosenDateYear = (ArrayList<Date>) selectedDates;
-                                if (selectedDates.size() > 1)
-                                    textToShow += "... " /*+ yearFormat.format(selectedDates.get(1))*/;
-
-                            }
-                            binding.buttonPeriodText.setText(textToShow);
-
-                            presenter.setFilters(selectedDates, currentPeriod, orgUnitFilter.toString());
-                            endlessScrollListener.resetState(0);
-                            pageProcessor.onNext(0);
-//                            presenter.getProgramEventsWithDates(selectedDates, currentPeriod, orgUnitFilter.toString());
-
-                        } else {
-                            ArrayList<Date> date = new ArrayList<>();
-                            date.add(new Date());
-
-                            String text = "";
-
-                            switch (currentPeriod) {
-                                case WEEKLY:
-                                    text = weeklyFormat.format(date.get(0)) + ", " + yearFormat.format(date.get(0));
-                                    chosenDateWeek = date;
-                                    break;
-                                case MONTHLY:
-                                    text = monthFormat.format(date.get(0));
-                                    chosenDateMonth = date;
-                                    break;
-                                case YEARLY:
-                                    text = yearFormat.format(date.get(0));
-                                    chosenDateYear = date;
-                                    break;
-                                default:
-                                    break;
-                            }
-                            binding.buttonPeriodText.setText(text);
-
-                            presenter.setFilters(date, currentPeriod, orgUnitFilter.toString());
-                            endlessScrollListener.resetState(0);
-                            pageProcessor.onNext(0);
-//                            presenter.getProgramEventsWithDates(date, currentPeriod, orgUnitFilter.toString());
-                        }
-                    },
-                    Timber::d);
-        } else if (currentPeriod == DAILY) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(chosenDateDay);
-            DatePickerDialog pickerDialog;
-            pickerDialog = new DatePickerDialog(getContext(), (datePicker, year, monthOfYear, dayOfMonth) -> {
-                calendar.set(year, monthOfYear, dayOfMonth);
-                Date[] dates = DateUtils.getInstance().getDateFromDateAndPeriod(calendar.getTime(), currentPeriod);
-                ArrayList<Date> day = new ArrayList<>();
-                day.add(dates[0]);
-
-                presenter.setFilters(day, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(day, currentPeriod, orgUnitFilter.toString());
-                binding.buttonPeriodText.setText(DateUtils.getInstance().formatDate(dates[0]));
-                chosenDateDay = dates[0];
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-            pickerDialog.show();
-        }
-    }
-
-
-    @Override
-    public void showTimeUnitPicker() {
-
-        Drawable drawable = null;
-        String textToShow = "";
-
-        switch (currentPeriod) {
-            case NONE:
-                currentPeriod = DAILY;
-                drawable = ContextCompat.getDrawable(getContext(), R.drawable.ic_view_day);
-                break;
-            case DAILY:
-                currentPeriod = WEEKLY;
-                drawable = ContextCompat.getDrawable(getContext(), R.drawable.ic_view_week);
-                break;
-            case WEEKLY:
-                currentPeriod = MONTHLY;
-                drawable = ContextCompat.getDrawable(getContext(), R.drawable.ic_view_month);
-                break;
-            case MONTHLY:
-                currentPeriod = YEARLY;
-                drawable = ContextCompat.getDrawable(getContext(), R.drawable.ic_view_year);
-                break;
-            case YEARLY:
-                currentPeriod = NONE;
-                drawable = ContextCompat.getDrawable(getContext(), R.drawable.ic_view_none);
-                break;
-        }
-        binding.buttonTime.setImageDrawable(drawable);
-
-        switch (currentPeriod) {
-            case NONE:
-                presenter.setFilters(null, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(null, currentPeriod, orgUnitFilter.toString());
-                textToShow = getString(R.string.period);
-                break;
-            case DAILY:
-                ArrayList<Date> datesD = new ArrayList<>();
-                datesD.add(chosenDateDay);
-                if (!datesD.isEmpty())
-                    textToShow = DateUtils.getInstance().formatDate(datesD.get(0));
-                if (!datesD.isEmpty() && datesD.size() > 1) textToShow += "... ";
-
-                presenter.setFilters(datesD, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(datesD, currentPeriod, orgUnitFilter.toString());
-                break;
-            case WEEKLY:
-                if (!chosenDateWeek.isEmpty()) {
-                    String week = getString(R.string.week);
-                    SimpleDateFormat weeklyFormat = new SimpleDateFormat("'" + week + "' w", Locale.getDefault());
-                    textToShow = weeklyFormat.format(chosenDateWeek.get(0)) + ", " + yearFormat.format(chosenDateWeek.get(0));
-                }
-                if (!chosenDateWeek.isEmpty() && chosenDateWeek.size() > 1) textToShow += "... ";
-
-                presenter.setFilters(chosenDateWeek, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(chosenDateWeek, currentPeriod, orgUnitFilter.toString());
-                break;
-            case MONTHLY:
-                if (!chosenDateMonth.isEmpty()) {
-                    String dateFormatted = monthFormat.format(chosenDateMonth.get(0));
-                    textToShow = dateFormatted.substring(0, 1).toUpperCase() + dateFormatted.substring(1);
-                }
-                if (!chosenDateMonth.isEmpty() && chosenDateMonth.size() > 1) textToShow += "... ";
-
-                presenter.setFilters(chosenDateMonth, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(chosenDateMonth, currentPeriod, orgUnitFilter.toString());
-                break;
-            case YEARLY:
-                if (!chosenDateYear.isEmpty())
-                    textToShow = yearFormat.format(chosenDateYear.get(0));
-                if (!chosenDateYear.isEmpty() && chosenDateYear.size() > 1) textToShow += "... ";
-
-                presenter.setFilters(chosenDateYear, currentPeriod, orgUnitFilter.toString());
-                endlessScrollListener.resetState(0);
-                pageProcessor.onNext(0);
-//                presenter.getProgramEventsWithDates(chosenDateYear, currentPeriod, orgUnitFilter.toString());
-                break;
-        }
-
-        binding.buttonPeriodText.setText(textToShow);
-    }
-
-    @Override
-    public void addTree(TreeNode treeNode) {
-        this.treeNode = treeNode;
-        binding.treeViewContainer.removeAllViews();
-        binding.orgUnitApply.setOnClickListener(view -> apply());
-        binding.orgUnitCancel.setOnClickListener(view -> {
-            binding.drawerLayout.closeDrawer(GravityCompat.END);
-            binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
-
-        });
-        binding.orgUnitAll.setOnClickListener(view -> {
-            treeView.selectAll(false);
-            for (TreeNode node : treeView.getSelected()) {
-                ((OrgUnitHolder) node.getViewHolder()).check();
-            }
-        });
-
-        binding.orgUnitUnselectAll.setOnClickListener(view -> {
-            for (TreeNode node : treeView.getSelected()) {
-                ((OrgUnitHolder) node.getViewHolder()).uncheck();
-                ((OrgUnitHolder) node.getViewHolder()).update();
-            }
-            treeView.deselectAll();
-            binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-
-        });
-        treeView = new AndroidTreeView(getContext(), treeNode);
-
-        treeView.setDefaultContainerStyle(R.style.TreeNodeStyle, false);
-        treeView.setSelectionModeEnabled(true);
-        treeView.setUseAutoToggle(false);
-
-        binding.treeViewContainer.addView(treeView.getView());
-        if (presenter.getOrgUnits().size() < 25)
-            treeView.expandAll();
-
-        treeView.setDefaultNodeClickListener((node, value) -> {
-            if (treeView.getSelected().size() == 1 && !node.isSelected()) {
-                binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-            } else if (treeView.getSelected().size() > 1) {
-                binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-
-                if (node.getChildren().isEmpty())
-                    presenter.onExpandOrgUnitNode(node, ((OrganisationUnitModel) node.getValue()).uid());
-                else
-                    node.setExpanded(node.isExpanded());
-            }
-        });
-
-        binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-    }
-
-    @Override
-    public Consumer<Pair<TreeNode, List<TreeNode>>> addNodeToTree() {
-        return node -> {
-            for (TreeNode childNode : node.val1())
-                treeView.addNode(node.val0(), childNode);
-            treeView.expandAll();
-        };
+    public void showFilterProgress() {
+        programEventsViewModel.setProgress(true);
     }
 
     @Override
@@ -414,189 +192,155 @@ public class ProgramEventDetailActivity extends ActivityGlobalAbstract implement
     }
 
     @Override
-    public void setCatComboOptions(CategoryComboModel catCombo, List<CategoryOptionComboModel> catComboList) {
-        ArrayList<CategoryOptionComboModel> catComboListFinal = new ArrayList<>();
-        if (catComboList != null) {
-            for (CategoryOptionComboModel categoryOptionComboModel : catComboList) {
-                if (!"default".equals(categoryOptionComboModel.displayName()) && !categoryOptionComboModel.uid().equals(CategoryComboModel.DEFAULT_UID)) {
-                    catComboListFinal.add(categoryOptionComboModel);
-                }
-            }
-        }
-
-        if (catCombo.isDefault() || "default".equals(catCombo.displayName()) || catCombo.uid().equals(CategoryComboModel.DEFAULT_UID) || catComboListFinal.isEmpty()) {
-            binding.catCombo.setVisibility(View.GONE);
-        } else {
-            binding.catCombo.setVisibility(View.VISIBLE);
-            CatComboAdapter adapter = new CatComboAdapter(this,
-                    R.layout.spinner_layout,
-                    R.id.spinner_text,
-                    catComboListFinal,
-                    catCombo.displayName(),
-                    R.color.white_faf);
-
-            binding.catCombo.setVisibility(View.VISIBLE);
-            binding.catCombo.setAdapter(adapter);
-
-            binding.catCombo.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                    if (position == 0) {
-                        isFilteredByCatCombo = false;
-                        presenter.clearCatComboFilters();
-                        endlessScrollListener.resetState();
-                        pageProcessor.onNext(0);
-                    } else {
-                        isFilteredByCatCombo = true;
-                        presenter.onCatComboSelected(adapter.getItem(position - 1));
-                        endlessScrollListener.resetState();
-                        pageProcessor.onNext(0);
-                    }
-                }
-
-                @Override
-                public void onNothingSelected(AdapterView<?> parent) {
-                   /* isFilteredByCatCombo = false;
-                    presenter.clearCatComboFilters();*/
-                }
-            });
-        }
-    }
-
-    @Override
     public void showHideFilter() {
-        binding.filterLayout.setVisibility(binding.filterLayout.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-        checkFilterEnabled();
-    }
+        Transition transition = new ChangeBounds();
+        transition.setDuration(200);
+        TransitionManager.beginDelayedTransition(binding.backdropLayout, transition);
+        backDropActive = !backDropActive;
+        ConstraintSet initSet = new ConstraintSet();
+        initSet.clone(binding.backdropLayout);
+        binding.filterOpen.setVisibility(backDropActive ? View.VISIBLE : View.GONE);
+        ViewCompat.setElevation(binding.eventsLayout, backDropActive ? 20 : 0);
 
-    private void checkFilterEnabled() {
-        if (binding.filterLayout.getVisibility() == View.VISIBLE) {
-            binding.filter.setBackgroundColor(getPrimaryColor());
-            binding.filter.setColorFilter(getResources().getColor(R.color.white), PorterDuff.Mode.SRC_IN);
-            binding.filter.setBackgroundResource(0);
+        if (backDropActive) {
+            initSet.connect(R.id.eventsLayout, ConstraintSet.TOP, R.id.filterLayout, ConstraintSet.BOTTOM, 50);
+        } else {
+            initSet.connect(R.id.eventsLayout, ConstraintSet.TOP, R.id.backdropGuideTop, ConstraintSet.BOTTOM, 0);
         }
-        // when filter layout is hidden
-        else {
-            // not applied period filter
-            if (currentPeriod == Period.NONE && areAllOrgUnitsSelected() && !isFilteredByCatCombo) {
-                binding.filter.setBackgroundColor(getPrimaryColor());
-                binding.filter.setColorFilter(getResources().getColor(R.color.white), PorterDuff.Mode.SRC_IN);
-                binding.filter.setBackgroundResource(0);
-            }
-            // applied period filter
-            else {
-                binding.filter.setBackgroundColor(ResourcesCompat.getColor(getResources(), R.color.white, getTheme()));
-                binding.filter.setColorFilter(getPrimaryColor(), PorterDuff.Mode.SRC_IN);
-                binding.filter.setBackgroundResource(R.drawable.white_circle);
-            }
-        }
-    }
 
-    public boolean areAllOrgUnitsSelected() {
-        return treeNode != null && treeNode.getChildren().size() == treeView.getSelected().size();
+        initSet.applyTo(binding.backdropLayout);
     }
 
     @Override
-    public void apply() {
-        if(treeView.getSelected().size() > 0) {
-            binding.drawerLayout.closeDrawers();
-            binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+    public void setFeatureType(FeatureType type) {
+        binding.navigationBar.setVisibility(type == FeatureType.NONE ? View.GONE : View.VISIBLE);
+    }
 
-            orgUnitFilter = new StringBuilder();
-            for (int i = 0; i < treeView.getSelected().size(); i++) {
-                orgUnitFilter.append("'");
-                orgUnitFilter.append(((OrganisationUnitModel) treeView.getSelected().get(i).getValue()).uid());
-                orgUnitFilter.append("'");
-                if (i < treeView.getSelected().size() - 1)
-                    orgUnitFilter.append(", ");
-            }
-
-            if (treeView.getSelected().size() == 1) {
-                binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-            } else if (treeView.getSelected().size() > 1) {
-                binding.buttonOrgUnit.setText(String.format(getString(R.string.org_unit_filter), treeView.getSelected().size()));
-            }
-
-            switch (currentPeriod) {
-                case NONE:
-                    presenter.setFilters(null, currentPeriod, orgUnitFilter.toString());
-                    endlessScrollListener.resetState(0);
-                    pageProcessor.onNext(0);
-                    break;
-                case DAILY:
-                    ArrayList<Date> datesD = new ArrayList<>();
-                    datesD.add(chosenDateDay);
-                    presenter.setFilters(datesD, currentPeriod, orgUnitFilter.toString());
-                    endlessScrollListener.resetState(0);
-                    pageProcessor.onNext(0);
-                    break;
-                case WEEKLY:
-                    presenter.setFilters(chosenDateWeek, currentPeriod, orgUnitFilter.toString());
-                    endlessScrollListener.resetState(0);
-                    pageProcessor.onNext(0);
-                    break;
-                case MONTHLY:
-                    presenter.setFilters(chosenDateMonth, currentPeriod, orgUnitFilter.toString());
-                    endlessScrollListener.resetState(0);
-                    pageProcessor.onNext(0);
-                    break;
-                case YEARLY:
-                    presenter.setFilters(chosenDateYear, currentPeriod, orgUnitFilter.toString());
-                    endlessScrollListener.resetState(0);
-                    pageProcessor.onNext(0);
-                    break;
-            }
-        }else
-            displayMessage(getString(R.string.org_unit_selection_warning));
+    @Override
+    public void startNewEvent() {
+        analyticsHelper().setEvent(AnalyticsConstants.CREATE_EVENT, AnalyticsConstants.DATA_CREATION, AnalyticsConstants.CREATE_EVENT);
+        binding.addEventButton.setEnabled(false);
+        Bundle bundle = new Bundle();
+        bundle.putString(PROGRAM_UID, programUid);
+        startActivity(EventInitialActivity.class, bundle, false, false, null);
     }
 
     @Override
     public void setWritePermission(Boolean canWrite) {
-        binding.addEventButton.setVisibility(canWrite ? View.VISIBLE : View.GONE);
+        programEventsViewModel.getWritePermission().setValue(canWrite);
     }
 
     @Override
     public void setTutorial() {
-        super.setTutorial();
-
-
-        SharedPreferences prefs = getAbstracContext().getSharedPreferences(
-                Constants.SHARE_PREFS, Context.MODE_PRIVATE);
-
         new Handler().postDelayed(() -> {
-            FancyShowCaseView tuto1 = new FancyShowCaseView.Builder(getAbstractActivity())
-                    .title(getString(R.string.tuto_program_event_1))
-                    .closeOnTouch(true)
-                    .build();
-            FancyShowCaseView tuto2 = new FancyShowCaseView.Builder(getAbstractActivity())
-                    .title(getString(R.string.tuto_program_event_2))
-                    .focusOn(getAbstractActivity().findViewById(R.id.addEventButton))
-                    .closeOnTouch(true)
-                    .build();
-
-
-            ArrayList<FancyShowCaseView> steps = new ArrayList<>();
-            steps.add(tuto1);
-            steps.add(tuto2);
-
-            HelpManager.getInstance().setScreenHelp(getClass().getName(), steps);
-
-            if (!prefs.getBoolean("TUTO_PROGRAM_EVENT", false) && !BuildConfig.DEBUG) {
-                HelpManager.getInstance().showHelp();/* getAbstractActivity().fancyShowCaseQueue.show();*/
-                prefs.edit().putBoolean("TUTO_PROGRAM_EVENT", true).apply();
-            }
+            SparseBooleanArray stepConditions = new SparseBooleanArray();
+            stepConditions.put(2, findViewById(R.id.addEventButton).getVisibility() == View.VISIBLE);
+            HelpManager.getInstance().show(getActivity(), HelpManager.TutorialName.PROGRAM_EVENT_LIST,
+                    stepConditions);
 
         }, 500);
-
     }
 
     @Override
-    public Flowable<Integer> currentPage() {
-        return pageProcessor;
+    public void updateFilters(int totalFilters) {
+        binding.setTotalFilters(totalFilters);
+        binding.executePendingBindings();
     }
 
     @Override
-    public void orgUnitProgress(boolean showProgress) {
-        binding.orgUnitProgress.setVisibility(showProgress ? View.VISIBLE : View.GONE);
+    public void showPeriodRequest(FilterManager.PeriodRequest periodRequest) {
+        if (periodRequest == FilterManager.PeriodRequest.FROM_TO) {
+            DateUtils.getInstance().showFromToSelector(this, FilterManager.getInstance()::addPeriod);
+        } else {
+            DateUtils.getInstance().showPeriodDialog(this, datePeriods -> {
+                        FilterManager.getInstance().addPeriod(datePeriods);
+                    },
+                    true);
+        }
+    }
+
+    @Override
+    public void openOrgUnitTreeSelector() {
+        Intent ouTreeIntent = new Intent(this, OUTreeActivity.class);
+        Bundle bundle = OUTreeActivity.Companion.getBundle(programUid);
+        ouTreeIntent.putExtras(bundle);
+        startActivityForResult(ouTreeIntent, FilterManager.OU_TREE);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (requestCode == FilterManager.OU_TREE && resultCode == Activity.RESULT_OK) {
+            updateFilters(FilterManager.getInstance().getTotalFilters());
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void showTutorial(boolean shaked) {
+        setTutorial();
+    }
+
+    @Override
+    public void navigateToEvent(String eventId, String orgUnit) {
+        programEventsViewModel.setUpdateEvent(eventId);
+        Bundle bundle = new Bundle();
+        bundle.putString(PROGRAM_UID, programUid);
+        bundle.putString(Constants.EVENT_UID, eventId);
+        bundle.putString(ORG_UNIT, orgUnit);
+        startActivity(EventCaptureActivity.class,
+                EventCaptureActivity.getActivityBundle(eventId, programUid, EventMode.CHECK),
+                false, false, null
+        );
+    }
+
+    @Override
+    public void showSyncDialog(String uid) {
+        SyncStatusDialog dialog = new SyncStatusDialog.Builder()
+                .setConflictType(SyncStatusDialog.ConflictType.EVENT)
+                .setUid(uid)
+                .onDismissListener(hasChanged -> {
+                    if (hasChanged)
+                        FilterManager.getInstance().publishData();
+
+                })
+                .build();
+
+        dialog.show(getSupportFragmentManager(), FRAGMENT_TAG);
+    }
+
+    private void showMap(boolean showMap) {
+        isMapVisible = showMap;
+        getSupportFragmentManager().beginTransaction().replace(
+                R.id.fragmentContainer,
+                showMap ? new EventMapFragment() : new EventListFragment()
+        ).commitNow();
+        binding.addEventButton.setVisibility(showMap && programEventsViewModel.getWritePermission().getValue() ? GONE : View.VISIBLE);
+    }
+
+    @Override
+    public void showCatOptComboDialog(String catComboUid) {
+        new CategoryDialog(
+                CategoryDialog.Type.CATEGORY_OPTION_COMBO,
+                catComboUid,
+                false,
+                null,
+                selectedCatOptionCombo -> {
+                    presenter.filterCatOptCombo(selectedCatOptionCombo);
+                    return null;
+                }
+        ).show(
+                getSupportFragmentManager(),
+                CategoryDialog.Companion.getTAG()
+        );
+    }
+
+    @Override
+    public void setFilterItems(List<FilterItem> programFilters) {
+        filtersAdapter.submitList(programFilters);
+    }
+
+    @Override
+    public void hideFilters() {
+        binding.filter.setVisibility(GONE);
     }
 }

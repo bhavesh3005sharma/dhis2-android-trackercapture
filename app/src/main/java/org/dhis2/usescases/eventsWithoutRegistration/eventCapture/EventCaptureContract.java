@@ -1,23 +1,26 @@
 package org.dhis2.usescases.eventsWithoutRegistration.eventCapture;
 
+import androidx.annotation.NonNull;
+
 import org.dhis2.data.forms.FormSectionViewModel;
-import org.dhis2.data.forms.dataentry.fields.FieldViewModel;
+import org.dhis2.form.model.FieldUiModel;
+import org.dhis2.form.model.RowAction;
 import org.dhis2.usescases.general.AbstractActivityContracts;
 import org.dhis2.utils.Result;
 import org.hisp.dhis.android.core.event.EventStatus;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
 import org.hisp.dhis.rules.models.RuleEffect;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import androidx.annotation.NonNull;
-import androidx.databinding.ObservableField;
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
-import io.reactivex.functions.Consumer;
+import io.reactivex.Single;
 import io.reactivex.processors.FlowableProcessor;
+import io.reactivex.subjects.BehaviorSubject;
 
 /**
  * QUADRAM. Created by ppajuelo on 19/11/2018.
@@ -30,29 +33,17 @@ public class EventCaptureContract {
 
         EventCaptureContract.Presenter getPresenter();
 
-        void setUp();
+        void updatePercentage(float primaryValue, float secondaryValue);
 
-        Consumer<Float> updatePercentage();
-
-        void setMandatoryWarning(Map<String, FieldViewModel> emptyMandatoryFields);
-
-        void attemptToFinish(boolean canComplete);
-
-        void showCompleteActions(boolean canComplete);
+        void showCompleteActions(boolean canComplete, String completeMessage, Map<String, String> errors, Map<String, FieldUiModel> emptyMandatoryFields);
 
         void restartDataEntry();
 
         void finishDataEntry();
 
-        void setShowError(Map<String, String> errors);
-
-        void showMessageOnComplete(boolean canComplete, String completeMessage);
-
         void attemptToReopen();
 
         void showSnackBar(int messageId);
-
-        android.view.View getSnackbarAnchor();
 
         void clearFocus();
 
@@ -61,30 +52,41 @@ public class EventCaptureContract {
         void attemptToReschedule();
 
         void setProgramStage(String programStageUid);
+
+        void showErrorSnackBar();
+
+        void showEventIntegrityAlert();
+
+        void updateNoteBadge(int numberOfNotes);
+
+        void showLoopWarning();
+
+        void goBack();
+
+        void showProgress();
+
+        void hideProgress();
+
+        void showNavigationBar();
+
+        void hideNavigationBar();
     }
 
     public interface Presenter extends AbstractActivityContracts.Presenter {
-        void init(EventCaptureContract.View view);
+
+        void init();
+
+        BehaviorSubject<List<FieldUiModel>> formFieldsFlowable();
 
         void onBackClick();
 
-        void subscribeToSection();
+        void nextCalculation(boolean doNextCalculation);
 
-        void onNextSection();
-
-        void onPreviousSection();
-
-        Observable<List<OrganisationUnitModel>> getOrgUnits();
-
-        ObservableField<String> getCurrentSection();
+        void attempFinish();
 
         boolean isEnrollmentOpen();
 
-        void onSectionSelectorClick(boolean isCurrentSection, int position, String sectionUid);
-
-        void initCompletionPercentage(FlowableProcessor<Float> integerFlowableProcessor);
-
-        void goToSection(String sectionUid);
+        void goToSection();
 
         void completeEvent(boolean addNew);
 
@@ -99,31 +101,41 @@ public class EventCaptureContract {
         boolean canWrite();
 
         boolean hasExpired();
+
+        void saveImage(String uuid, String filePath);
+
+        void initNoteCounter();
+
+        void refreshTabCounters();
+
+        void hideProgress();
+
+        void showProgress();
+
+        boolean getCompletionPercentageVisibility();
+
+        void setValueChanged(@NotNull String uid);
     }
 
     public interface EventCaptureRepository {
+
+        Flowable<Boolean> eventIntegrityCheck();
 
         Flowable<String> programStageName();
 
         Flowable<String> eventDate();
 
-        Flowable<String> orgUnit();
+        Flowable<OrganisationUnit> orgUnit();
 
         Flowable<String> catOption();
 
         Flowable<List<FormSectionViewModel>> eventSections();
 
         @NonNull
-        Flowable<List<FieldViewModel>> list(String sectionUid);
-
-        @NonNull
-        Flowable<List<FieldViewModel>> list();
+        Flowable<List<FieldUiModel>> list(FlowableProcessor<RowAction> processor);
 
         @NonNull
         Flowable<Result<RuleEffect>> calculate();
-
-        @NonNull
-        Flowable<Result<RuleEffect>> calculate(String lastUpdatedElement);
 
         Observable<Boolean> completeEvent();
 
@@ -143,7 +155,23 @@ public class EventCaptureContract {
 
         boolean getAccessDataWrite();
 
-        void setLastUpdated(String lastUpdatedUid);
+        boolean isEnrollmentCancelled();
+
+        boolean isEventEditable(String eventUid);
+
+        String getSectionFor(String field);
+
+        Single<Boolean> canReOpenEvent();
+
+        Observable<Boolean> isCompletedEventExpired(String eventUid);
+
+        Single<Integer> getNoteCount();
+
+        List<String> getOptionsFromGroups(List<String> optionGroupUids);
+
+        boolean showCompletionPercentage();
+
+        void updateFieldValue(String uid);
     }
 
 }

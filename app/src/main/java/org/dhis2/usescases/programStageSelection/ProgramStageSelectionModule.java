@@ -4,10 +4,9 @@ import androidx.annotation.NonNull;
 
 import org.dhis2.data.dagger.PerActivity;
 import org.dhis2.data.forms.RulesRepository;
-import com.squareup.sqlbrite2.BriteDatabase;
-
+import org.dhis2.data.schedulers.SchedulerProvider;
 import org.dhis2.utils.RulesUtilsProvider;
-import org.hisp.dhis.rules.RuleExpressionEvaluator;
+import org.hisp.dhis.android.core.D2;
 
 import dagger.Module;
 import dagger.Provides;
@@ -22,8 +21,10 @@ public class ProgramStageSelectionModule {
     private final String programUid;
     private final String enrollmentUid;
     private final String eventCreationType;
+    private final ProgramStageSelectionContract.View view;
 
-    public ProgramStageSelectionModule(String programId, String enrollmenId, String eventCreationType) {
+    public ProgramStageSelectionModule(ProgramStageSelectionContract.View view, String programId, String enrollmenId, String eventCreationType) {
+        this.view = view;
         this.programUid = programId;
         this.enrollmentUid = enrollmenId;
         this.eventCreationType = eventCreationType;
@@ -38,21 +39,21 @@ public class ProgramStageSelectionModule {
     @Provides
     @PerActivity
     ProgramStageSelectionContract.Presenter providesPresenter(@NonNull ProgramStageSelectionRepository programStageSelectionRepository,
-                                                              @NonNull RulesUtilsProvider ruleUtils) {
-        return new ProgramStageSelectionPresenter(programStageSelectionRepository,ruleUtils);
+                                                              @NonNull RulesUtilsProvider ruleUtils,
+                                                              SchedulerProvider schedulerProvider) {
+        return new ProgramStageSelectionPresenter(view, programStageSelectionRepository, ruleUtils, schedulerProvider);
     }
 
     @Provides
     @PerActivity
-    ProgramStageSelectionRepository providesProgramStageSelectionRepository(@NonNull BriteDatabase briteDatabase,
-                                                                            @NonNull RuleExpressionEvaluator evaluator,
-                                                                            RulesRepository rulesRepository) {
-        return new ProgramStageSelectionRepositoryImpl(briteDatabase, evaluator, rulesRepository, programUid, enrollmentUid,eventCreationType);
+    ProgramStageSelectionRepository providesProgramStageSelectionRepository(RulesRepository rulesRepository,
+                                                                            D2 d2) {
+        return new ProgramStageSelectionRepositoryImpl(rulesRepository, programUid, enrollmentUid, eventCreationType, d2);
     }
 
     @Provides
     @PerActivity
-    RulesRepository rulesRepository(BriteDatabase briteDatabase) {
-        return new RulesRepository(briteDatabase);
+    RulesRepository rulesRepository(@NonNull D2 d2) {
+        return new RulesRepository(d2);
     }
 }

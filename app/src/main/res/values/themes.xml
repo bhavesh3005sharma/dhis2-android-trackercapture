@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <!--region BASE THEMES -->
 
     <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -12,23 +13,47 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerTheme</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerTheme</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
         <item name="colorPrimaryLight">@color/colorPrimaryLight</item>
         <item name="button_selector">@drawable/button_selector</item>
         <item name="selector_button_round_20">@drawable/selector_button_round_20</item>
         <item name="selector_button_round_7">@drawable/selector_button_round_7</item>
+        <item name="selector_button_round_2">@drawable/selector_button_round_2</item>
         <item name="image_selector_bg">@drawable/image_selector_bg</item>
         <item name="period_button">@drawable/period_button</item>
         <item name="period_time_button">@drawable/period_time_button</item>
         <item name="toast_bg">@drawable/toast_bg</item>
-        <item name="android:windowBackground">@color/gray_f6f</item>
-
         <item name="android:fontFamily">@font/rubik_regular</item>
-
         <item name="textInputStyle">@style/Widget.Design.TextInputLayout</item>
         <item name="navigationViewStyle">@style/Widget.Design.NavigationView</item>
         <item name="chipGroupStyle">@style/Widget.MaterialComponents.ChipGroup</item>
         <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Action</item>
+    </style>
 
+    <style name="DhisBottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="materialThemeOverlay">@style/DhisBottomNavigationViewOverlay</item>
+        <item name="currentItemSelectorSize">40dp</item>
+        <item name="currentItemSelectorColor">?colorPrimary</item>
+        <item name="currentItemSelectorDrawable">@drawable/navigation_item_selector</item>
+    </style>
+
+    <style name="DhisBottomNavigationViewOverlay" parent="">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnSurface">@color/colorPrimaryLight</item>
+    </style>
+
+    <style name="SplashTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
+    <style name="LoginTheme" parent="AppTheme">
+        <item name="colorAccent">@color/colorPrimaryLight</item>
+        <item name="android:buttonStyle">@style/fingerprint_button</item>
+        <item name="buttonBarNegativeButtonStyle">@style/fingerprint_button</item>
+    </style>
+
+    <style name="fingerprint_button" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/colorPrimary</item>
     </style>
 
     <style name="RedTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -39,6 +64,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
         <item name="colorPrimaryLight">@color/colorPrimaryLightRed</item>
         <item name="button_selector">@drawable/button_selector_red</item>
         <item name="selector_button_round_20">@drawable/selector_button_round_20_red</item>
@@ -47,7 +73,6 @@
         <item name="period_button">@drawable/period_button_red</item>
         <item name="period_time_button">@drawable/period_time_button_red</item>
         <item name="toast_bg">@drawable/toast_bg_red</item>
-        <item name="android:windowBackground">@color/gray_f6f</item>
     </style>
 
     <style name="AppTheme.Launcher">
@@ -62,6 +87,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeGreen</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeGreen</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
         <item name="colorPrimaryLight">@color/colorPrimaryLightGreen</item>
         <item name="button_selector">@drawable/button_selector_green</item>
         <item name="selector_button_round_20">@drawable/selector_button_round_20_green</item>
@@ -70,7 +96,6 @@
         <item name="period_button">@drawable/period_button_green</item>
         <item name="period_time_button">@drawable/period_time_button_green</item>
         <item name="toast_bg">@drawable/toast_bg_green</item>
-        <item name="android:windowBackground">@color/gray_f6f</item>
 
     </style>
 
@@ -83,6 +108,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeOrange</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeOrange</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
         <item name="button_selector">@drawable/button_selector_orange</item>
         <item name="selector_button_round_20">@drawable/selector_button_round_20_orange</item>
         <item name="selector_button_round_7">@drawable/selector_button_round_7_orange</item>
@@ -90,9 +116,10 @@
         <item name="period_button">@drawable/period_button_orange</item>
         <item name="period_time_button">@drawable/period_time_button_orange</item>
         <item name="toast_bg">@drawable/toast_bg_orange</item>
-        <item name="android:windowBackground">@color/gray_f6f</item>
 
-    </style><!--endregion--><!--region PALETTES-->
+    </style>
+
+    <!--endregion--><!--region PALETTES-->
     <style name="colorPrimary_Pink" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <item name="colorPrimary">@color/colorPrimary_Pink</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark_Pink</item>
@@ -101,16 +128,18 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_e57" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <item name="colorPrimary">@color/colorPrimary_e57</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark_Pink</item>
-        <item name="colorPrimaryLight">@color/colorPrimaryLight_Pink</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark_e57</item>
+        <item name="colorPrimaryLight">@color/colorPrimaryLight_e57</item>
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_d32" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -121,6 +150,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_f06" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -131,6 +161,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_c21" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -141,6 +172,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_880" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -151,6 +183,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_f50" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -161,16 +194,24 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_e1b" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <item name="colorPrimary">@color/colorPrimary_elb</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryDark_elb</item>
+        <item name="colorOnPrimary">#502858</item>
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorSecondaryVariant">#BEBEBE</item>
+        <item name="colorOnSecondary">@color/black_de0</item>
+
         <item name="colorPrimaryDark">@color/colorPrimaryDark_elb</item>
         <item name="colorPrimaryLight">@color/colorPrimaryLight_elb</item>
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_ba6" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -181,6 +222,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_8e2" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -191,6 +233,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_aa0" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -201,6 +244,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_7e5" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -211,6 +255,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_452" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -221,6 +266,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_7c4" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -231,6 +277,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_620" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -241,6 +288,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_c5c" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -251,6 +299,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_798" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -261,6 +310,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_394" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -271,6 +321,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_304" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -281,6 +332,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_e3f" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -291,6 +343,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_64b" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -301,6 +354,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_197" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -311,6 +365,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_028" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -321,6 +376,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_40c" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -331,6 +387,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_00b" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -341,6 +398,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_80d" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -351,6 +409,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_00a" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -361,6 +420,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_008" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -371,6 +431,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_006" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -381,6 +442,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_e0f" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -391,6 +453,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_80c" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -401,6 +464,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_0069" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -411,6 +475,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_64f" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -421,6 +486,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_c8e" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -431,6 +497,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_66b" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -441,6 +508,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_2e7" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -451,6 +519,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_60a" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -461,6 +530,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_00e" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -471,6 +541,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_aed" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -481,6 +552,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_689" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -491,6 +563,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_336" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -501,6 +574,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_76f" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -511,6 +585,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_64d" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -521,6 +596,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_cdd" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -531,6 +607,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_9e9" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -541,6 +618,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_827" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -551,6 +629,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_fff" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -561,6 +640,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_fbc" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -571,6 +651,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_f57" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -581,6 +662,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_ffff" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -591,6 +673,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_ffc" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -601,6 +684,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_ffcc" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -611,6 +695,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_ffa" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -621,6 +706,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_bca" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -631,6 +717,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_8d6" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -641,6 +728,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_4e3" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -651,6 +739,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_faf" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -661,6 +750,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_bdb" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -671,6 +761,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_757" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -681,6 +772,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_424" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -691,6 +783,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_cfd" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -701,6 +794,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_b0b" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -711,6 +805,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_607" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -721,6 +816,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 
     <style name="colorPrimary_374" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
@@ -731,6 +827,7 @@
         <item name="android:datePickerDialogTheme">@style/DatePickerThemeRed</item>
         <item name="android:timePickerDialogTheme">@style/TimePickerThemeRed</item>
         <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
     <!--endregion-->
 </resources>

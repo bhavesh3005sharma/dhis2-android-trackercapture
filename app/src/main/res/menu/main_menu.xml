@@ -7,37 +7,21 @@
             android:id="@+id/menu_home"
             android:icon="@drawable/ic_menu_home"
             android:title="@string/menu_home" />
-        <item
-            android:id="@+id/qr_scan"
-            android:icon="@drawable/ic_qr"
-            android:title="@string/QR_SCANNER" />
-
-        <item
-            android:id="@+id/sync_manager"
-            android:icon="@drawable/ic_menu_settings"
-            android:title="@string/SYNC_MANAGER" />
-
-
-        <item
-            android:id="@+id/menu_about"
-            android:icon="@drawable/ic_menu_info"
-            android:title="@string/about" />
-
-
     </group>
+
     <group
         android:id="@+id/app_sections"
         android:checkableBehavior="single">
         <item
-            android:id="@+id/drawer_item_mHBSTraining"
+            android:id="@+id/menu_item_mHBSTraining"
             android:icon="@drawable/common_full_open_on_phone"
             android:title="@string/drawer_item_mHBSTraining" />
         <item
-            android:id="@+id/drawer_item_eHBB"
+            android:id="@+id/menu_item_eHBB"
             android:icon="@drawable/common_full_open_on_phone"
             android:title="@string/drawer_item_eHBB" />
         <item
-            android:id="@+id/drawer_item_safeDelivery"
+            android:id="@+id/menu_item_safeDelivery"
             android:icon="@drawable/common_full_open_on_phone"
             android:title="@string/drawer_item_safeDelivery" />
     </group>
@@ -46,9 +30,23 @@
         android:id="@+id/close_section"
         android:checkableBehavior="single">
         <item
+            android:id="@+id/qr_scan"
+            android:icon="@drawable/ic_qr"
+            android:title="@string/QR_SCANNER" />
+
+        <item
+            android:id="@+id/nfc_scan"
+            android:icon="@drawable/ic_nfc"
+            android:visible="false"
+            android:title="NFC Reader" />
+        <item
+            android:id="@+id/sync_manager"
+            android:icon="@drawable/ic_menu_settings"
+            android:title="@string/SYNC_MANAGER" />
+        <item
             android:id="@+id/block_button"
             android:icon="@drawable/ic_menu_lock"
-            android:title="@string/block_session" />
+            android:title="@string/set_pin" />
 
         <item
             android:id="@+id/logout_button"
@@ -62,7 +60,13 @@
         android:checkableBehavior="single">
         <item
             android:id="@+id/menu_jira"
-            android:icon="@drawable/ic_menu_info"
+            android:icon="@drawable/ic_jira"
             android:title="@string/jira_report" />
+
+        <item
+            android:id="@+id/menu_about"
+            android:icon="@drawable/ic_menu_info"
+            android:title="@string/about" />
+
     </group>
 </menu>

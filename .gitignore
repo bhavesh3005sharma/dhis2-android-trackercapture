@@ -7,4 +7,5 @@
 /captures
 .externalNativeBuild
 /app/dhis_keystore.jks
-dhis2-rule-engine/
+/app/src/main/res/raw/testing_credentials.json
+/venv

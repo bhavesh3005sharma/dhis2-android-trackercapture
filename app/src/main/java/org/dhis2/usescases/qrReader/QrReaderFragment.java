@@ -5,10 +5,18 @@ import android.Manifest;
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
-import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.databinding.DataBindingUtil;
+import androidx.fragment.app.Fragment;
 
 import com.google.gson.Gson;
 import com.google.zxing.BarcodeFormat;
@@ -23,26 +31,18 @@ import org.dhis2.databinding.FragmentQrBinding;
 import org.dhis2.usescases.eventsWithoutRegistration.eventInitial.EventInitialActivity;
 import org.dhis2.usescases.general.FragmentGlobalAbstract;
 import org.dhis2.usescases.main.MainActivity;
-import org.dhis2.usescases.teiDashboard.mobile.TeiDashboardMobileActivity;
+import org.dhis2.usescases.teiDashboard.TeiDashboardMobileActivity;
 import org.dhis2.utils.Constants;
 import org.dhis2.utils.NetworkUtils;
-import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValueModel;
+import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.databinding.DataBindingUtil;
-import androidx.fragment.app.Fragment;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 import timber.log.Timber;
 
@@ -64,8 +64,8 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
     @Inject
     QrReaderContracts.Presenter presenter;
     private String eventUid;
-    private List<Trio<TrackedEntityDataValueModel, String, Boolean>> eventData = new ArrayList<>();
-    private List<Trio<TrackedEntityDataValueModel, String, Boolean>> teiEventData = new ArrayList<>();
+    private List<Trio<TrackedEntityDataValue, String, Boolean>> eventData = new ArrayList<>();
+    private List<Trio<TrackedEntityDataValue, String, Boolean>> teiEventData = new ArrayList<>();
 
     private String teiUid;
     private List<Trio<String, String, Boolean>> attributes = new ArrayList<>();
@@ -147,7 +147,8 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
             isPermissionRequested = true;
             ActivityCompat.requestPermissions((MainActivity) context, new String[]{Manifest.permission.CAMERA}, 101);
         } else {
-            getAbstractActivity().finish();
+            ((MainActivity) getContext()).goToHome();
+            Toast.makeText(getContext(), getString(R.string.camera_permission_denied), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -181,10 +182,7 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
 
     @Override
     public void goToDashBoard(String uid) {
-        Bundle bundle = new Bundle();
-        bundle.putString("TEI_UID", uid);
-        bundle.putString("PROGRAM_UID", null);
-        startActivity(TeiDashboardMobileActivity.class, bundle, false, false, null);
+        startActivity(TeiDashboardMobileActivity.intent(context,uid,null,null));
     }
 
     @Override
@@ -251,8 +249,8 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
 
 
     @Override
-    public void renderEventDataInfo(@NonNull List<Trio<TrackedEntityDataValueModel, String, Boolean>> data) {
-        for (Trio<TrackedEntityDataValueModel, String, Boolean> dataValue : data) {
+    public void renderEventDataInfo(@NonNull List<Trio<TrackedEntityDataValue, String, Boolean>> data) {
+        for (Trio<TrackedEntityDataValue, String, Boolean> dataValue : data) {
             if (!dataValue.val2()) {
                 showError(getString(R.string.qr_error_attr));
             } else if (!this.eventData.contains(dataValue)) {
@@ -263,8 +261,8 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
     }
 
     @Override
-    public void renderTeiEventDataInfo(@NonNull List<Trio<TrackedEntityDataValueModel, String, Boolean>> data) {
-        for (Trio<TrackedEntityDataValueModel, String, Boolean> dataValue : data) {
+    public void renderTeiEventDataInfo(@NonNull List<Trio<TrackedEntityDataValue, String, Boolean>> data) {
+        for (Trio<TrackedEntityDataValue, String, Boolean> dataValue : data) {
             if (!dataValue.val2()) {
                 showError(getString(R.string.qr_error_attr));
             } else if (!this.teiEventData.contains(dataValue)) {
@@ -397,7 +395,7 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
         message = message + getString(R.string.qr_data_values) + ":\n";
 
         if (teiEventData != null && !teiEventData.isEmpty()) {
-            for (Trio<TrackedEntityDataValueModel, String, Boolean> attribute : teiEventData) {
+            for (Trio<TrackedEntityDataValue, String, Boolean> attribute : teiEventData) {
                 message = message + attribute.val1() + ":\n" + attribute.val0().value() + "\n\n";
             }
             message = message + "\n";
@@ -442,7 +440,7 @@ public class QrReaderFragment extends FragmentGlobalAbstract implements ZXingSca
         message = message + getString(R.string.qr_data_values) + ":\n";
 
         if (eventData != null && !eventData.isEmpty()) {
-            for (Trio<TrackedEntityDataValueModel, String, Boolean> attribute : eventData) {
+            for (Trio<TrackedEntityDataValue, String, Boolean> attribute : eventData) {
                 message = message + attribute.val1() + ":\n" + attribute.val0().value() + "\n\n";
             }
             message = message + "\n";

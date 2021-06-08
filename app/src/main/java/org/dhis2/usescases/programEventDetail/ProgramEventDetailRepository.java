@@ -1,39 +1,41 @@
 package org.dhis2.usescases.programEventDetail;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.LiveData;
+import androidx.paging.PagedList;
 
-import org.dhis2.utils.Period;
+import org.dhis2.usescases.teiDashboard.dashboardfragments.teidata.teievents.EventViewModel;
+import org.hisp.dhis.android.core.category.CategoryOptionCombo;
+import org.hisp.dhis.android.core.common.FeatureType;
+import org.hisp.dhis.android.core.event.EventFilter;
+import org.hisp.dhis.android.core.program.Program;
 
-import org.hisp.dhis.android.core.category.CategoryOptionComboModel;
-import org.hisp.dhis.android.core.event.EventModel;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
-
-import java.util.Date;
 import java.util.List;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
-
-/**
- * Created by Cristian E. on 02/11/2017.
- *
- */
+import io.reactivex.Single;
 
 public interface ProgramEventDetailRepository {
 
     @NonNull
-    Flowable<List<ProgramEventViewModel>> filteredProgramEvents(String programUid, List<Date> dates, Period period, CategoryOptionComboModel categoryOptionComboModel, String orgUnitQuery, int page);
+    LiveData<PagedList<EventViewModel>> filteredProgramEvents();
 
     @NonNull
-    Observable<List<OrganisationUnitModel>> orgUnits();
+    Flowable<ProgramEventMapData> filteredEventsForMap();
 
     @NonNull
-    Observable<List<OrganisationUnitModel>> orgUnits(String parentUid);
+    Observable<Program> program();
 
-    @NonNull
-    Observable<List<CategoryOptionComboModel>> catCombo(String programUid);
+    boolean getAccessDataWrite();
 
-    Observable<List<String>> eventDataValuesNew(EventModel eventModel);
+    Single<Boolean> hasAccessToAllCatOptions();
 
-    Observable<Boolean> writePermission(String programId);
+    Flowable<ProgramEventViewModel> getInfoForEvent(String eventUid);
+
+    Single<FeatureType> featureType();
+
+    CategoryOptionCombo getCatOptCombo(String selectedCatOptionCombo);
+
+    Single<List<EventFilter>> workingLists();
 }

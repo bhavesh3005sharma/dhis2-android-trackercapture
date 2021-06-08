@@ -1,35 +1,36 @@
 package org.dhis2.usescases.eventsWithoutRegistration.eventInitial;
 
-import android.Manifest;
 import android.app.DatePickerDialog;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.view.View;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
-import org.dhis2.Bindings.Bindings;
 import org.dhis2.R;
-import org.dhis2.data.forms.dataentry.fields.FieldViewModel;
 import org.dhis2.data.forms.dataentry.fields.edittext.EditTextViewModel;
-import org.dhis2.data.metadata.MetadataRepository;
+import org.dhis2.data.prefs.Preference;
+import org.dhis2.data.prefs.PreferenceProvider;
 import org.dhis2.data.schedulers.SchedulerProvider;
-import org.dhis2.data.tuples.Quartet;
+import org.dhis2.data.tuples.Sextet;
 import org.dhis2.data.tuples.Trio;
-import org.dhis2.usescases.eventsWithoutRegistration.eventSummary.EventSummaryActivity;
+import org.dhis2.form.model.FieldUiModel;
+import org.dhis2.usescases.eventsWithoutRegistration.eventCapture.EventFieldMapper;
 import org.dhis2.usescases.eventsWithoutRegistration.eventSummary.EventSummaryRepository;
-import org.dhis2.usescases.map.MapSelectorActivity;
-import org.dhis2.utils.Constants;
 import org.dhis2.utils.DateUtils;
-import org.dhis2.utils.OrgUnitUtils;
+import org.dhis2.utils.DhisTextUtils;
+import org.dhis2.utils.EventCreationType;
 import org.dhis2.utils.Result;
-import org.hisp.dhis.android.core.category.CategoryComboModel;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModel;
-import org.hisp.dhis.android.core.period.PeriodType;
-import org.hisp.dhis.android.core.program.ProgramModel;
+import org.dhis2.utils.analytics.AnalyticsHelper;
+import org.dhis2.utils.analytics.matomo.MatomoAnalyticsController;
+import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
+import org.hisp.dhis.android.core.category.CategoryCombo;
+import org.hisp.dhis.android.core.category.CategoryOption;
+import org.hisp.dhis.android.core.category.CategoryOptionCombo;
+import org.hisp.dhis.android.core.common.Geometry;
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
+import org.hisp.dhis.android.core.program.Program;
 import org.hisp.dhis.rules.models.RuleAction;
 import org.hisp.dhis.rules.models.RuleActionHideField;
 import org.hisp.dhis.rules.models.RuleActionHideSection;
@@ -43,166 +44,156 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
-import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.Observable;
 import io.reactivex.disposables.CompositeDisposable;
-import io.reactivex.schedulers.Schedulers;
-import rx.exceptions.OnErrorNotImplementedException;
+import kotlin.Pair;
 import timber.log.Timber;
 
-/**
- * QUADRAM. Created by Cristian on 01/03/2018.
- */
+import static org.dhis2.utils.analytics.AnalyticsConstants.BACK_EVENT;
+import static org.dhis2.utils.analytics.matomo.Actions.CREATE_EVENT;
+import static org.dhis2.utils.analytics.matomo.Categories.EVENT_LIST;
+import static org.dhis2.utils.analytics.matomo.Labels.CLICK;
 
-public class EventInitialPresenter implements EventInitialContract.Presenter {
+public class EventInitialPresenter {
 
-    public static final int ACCESS_COARSE_LOCATION_PERMISSION_REQUEST = 101;
-    static private EventInitialContract.View view;
-    private final MetadataRepository metadataRepository;
+    public static final int ACCESS_LOCATION_PERMISSION_REQUEST = 101;
+    private final PreferenceProvider preferences;
+    private final AnalyticsHelper analyticsHelper;
+
+    private final EventInitialContract.View view;
+
     private final EventInitialRepository eventInitialRepository;
+
     private final EventSummaryRepository eventSummaryRepository;
+
     private final SchedulerProvider schedulerProvider;
-    private FusedLocationProviderClient mFusedLocationClient;
+    private final EventFieldMapper eventFieldMapper;
+
     private String eventId;
 
-    private CompositeDisposable compositeDisposable;
-    private ProgramModel programModel;
-    private CategoryComboModel catCombo;
-    private String programId;
+    public CompositeDisposable compositeDisposable = new CompositeDisposable();
+
+    private Program program;
+
     private String programStageId;
-    private List<OrganisationUnitModel> orgUnits;
 
-    public EventInitialPresenter(@NonNull EventSummaryRepository eventSummaryRepository,
+    private List<OrganisationUnit> orgUnits;
+
+    private String programId;
+
+    private MatomoAnalyticsController matomoAnalyticsController;
+
+    public EventInitialPresenter(@NonNull EventInitialContract.View view,
+                                 @NonNull EventSummaryRepository eventSummaryRepository,
                                  @NonNull EventInitialRepository eventInitialRepository,
-                                 @NonNull MetadataRepository metadataRepository,
-                                 @NonNull SchedulerProvider schedulerProvider) {
+                                 @NonNull SchedulerProvider schedulerProvider,
+                                 @NonNull PreferenceProvider preferenceProvider,
+                                 @NonNull AnalyticsHelper analyticsHelper,
+                                 @NonNull MatomoAnalyticsController matomoAnalyticsController,
+                                 @NonNull EventFieldMapper eventFieldMapper) {
 
-        this.metadataRepository = metadataRepository;
+        this.view = view;
         this.eventInitialRepository = eventInitialRepository;
         this.eventSummaryRepository = eventSummaryRepository;
         this.schedulerProvider = schedulerProvider;
+        this.preferences = preferenceProvider;
+        this.analyticsHelper = analyticsHelper;
+        this.matomoAnalyticsController = matomoAnalyticsController;
+        this.eventFieldMapper = eventFieldMapper;
     }
 
-    @Override
-    public void init(EventInitialContract.View mview, String programId, String eventId, String orgInitId, String programStageId) {
-        view = mview;
+    public void init(String programId,
+                     String eventId,
+                     String orgInitId,
+                     String programStageId) {
         this.eventId = eventId;
         this.programId = programId;
         this.programStageId = programStageId;
 
-        compositeDisposable = new CompositeDisposable();
-
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(view.getContext());
+        view.setAccessDataWrite(
+                eventInitialRepository.accessDataWrite(programId).blockingFirst()
+        );
 
         if (eventId != null) {
-            compositeDisposable.add(
-                    Flowable.zip(
-                            eventInitialRepository.event(eventId).toFlowable(BackpressureStrategy.LATEST),
-                            metadataRepository.getProgramWithId(programId).toFlowable(BackpressureStrategy.LATEST),
-                            eventInitialRepository.catComboModel(programId).toFlowable(BackpressureStrategy.LATEST),
-                            eventInitialRepository.catCombo(programId).toFlowable(BackpressureStrategy.LATEST),
-                            Quartet::create
-                    )
-                            .subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(quartetFlowable -> {
-                                this.programModel = quartetFlowable.val1();
-                                this.catCombo = quartetFlowable.val2();
-                                view.setEvent(quartetFlowable.val0());
-                                view.setProgram(quartetFlowable.val1());
-                                view.setCatComboOptions(catCombo, quartetFlowable.val3());
-                            }, Timber::d)
-            );
+            compositeDisposable
+                    .add(
+                            Flowable.zip(
+                                    eventInitialRepository.event(eventId).toFlowable(BackpressureStrategy.LATEST),
+                                    eventInitialRepository.getProgramWithId(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    eventInitialRepository.catCombo(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    eventInitialRepository.programStageForEvent(eventId),
+                                    eventInitialRepository.getOptionsFromCatOptionCombo(eventId),
+                                    eventInitialRepository.orgUnits(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    Sextet::create)
+                                    .subscribeOn(schedulerProvider.io()).observeOn(schedulerProvider.ui())
+                                    .subscribe(sextet -> {
+                                        this.program = sextet.val1();
+                                        this.orgUnits = sextet.val5();
+                                        view.setProgram(sextet.val1());
+                                        view.setProgramStage(sextet.val3());
+                                        view.setEvent(sextet.val0());
+                                        getCatOptionCombos(sextet.val2(), !sextet.val4().isEmpty() ? sextet.val4() : null);
+                                    }, Timber::d));
 
-        } else
-            compositeDisposable.add(
-                    Flowable.zip(
-                            metadataRepository.getProgramWithId(programId).toFlowable(BackpressureStrategy.LATEST),
-                            eventInitialRepository.catComboModel(programId).toFlowable(BackpressureStrategy.LATEST),
-                            eventInitialRepository.catCombo(programId).toFlowable(BackpressureStrategy.LATEST),
-                            Trio::create
-                    )
-                            .subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(trioFlowable -> {
-                                this.programModel = trioFlowable.val0();
-                                this.catCombo = trioFlowable.val1();
-                                view.setProgram(trioFlowable.val0());
-                                view.setCatComboOptions(catCombo, trioFlowable.val2());
-                            }, Timber::d)
-            );
-
-        getOrgUnits(programId);
-
-        getProgramStages(programId, programStageId);
-
-        if (eventId != null)
-            getEventSections(eventId);
-
-        if (orgInitId != null) {
-            compositeDisposable.add(
-                    metadataRepository.getOrganisationUnit(orgInitId)
-                            .subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(organisationUnitModel ->
-                                            view.setOrgUnit(organisationUnitModel.uid(), organisationUnitModel.displayName()),
-                                    Timber::d
-                            ));
+        } else {
+            compositeDisposable
+                    .add(
+                            Flowable.zip(
+                                    eventInitialRepository.getProgramWithId(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    eventInitialRepository.catCombo(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    eventInitialRepository.orgUnits(programId).toFlowable(BackpressureStrategy.LATEST),
+                                    Trio::create)
+                                    .subscribeOn(schedulerProvider.io()).observeOn(schedulerProvider.ui())
+                                    .subscribe(trioFlowable -> {
+                                        this.program = trioFlowable.val0();
+                                        this.orgUnits = trioFlowable.val2();
+                                        view.setProgram(trioFlowable.val0());
+                                        getCatOptionCombos(trioFlowable.val1(), null);
+                                    }, Timber::d));
+            getProgramStages(programId, programStageId);
         }
 
+        if (eventId != null)
+            getSectionCompletion();
+
+        if (getCurrentOrgUnit(orgInitId) != null) {
+            compositeDisposable.add(
+                    eventInitialRepository.getOrganisationUnit(getCurrentOrgUnit(orgInitId))
+                            .subscribeOn(schedulerProvider.io())
+                            .observeOn(schedulerProvider.ui())
+                            .subscribe(
+                                    organisationUnit -> view.setOrgUnit(organisationUnit.uid(), organisationUnit.displayName()),
+                                    Timber::d
+                            )
+            );
+        }
+    }
+
+    @VisibleForTesting
+    public String getCurrentOrgUnit(String orgUnitUid) {
+        if (preferences.contains(Preference.CURRENT_ORG_UNIT)) {
+            return preferences.getString(Preference.CURRENT_ORG_UNIT, null);
+        } else return orgUnitUid;
+    }
+
+    private void getCatOptionCombos(CategoryCombo categoryCombo, Map<String, CategoryOption> stringCategoryOptionMap) {
         compositeDisposable.add(
-                eventInitialRepository.accessDataWrite(programId)
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
+                eventInitialRepository.catOptionCombos(categoryCombo.uid())
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
                         .subscribe(
-                                view::setAccessDataWrite,
+                                categoryOptionCombos -> view.setCatComboOptions(categoryCombo, categoryOptionCombos, stringCategoryOptionMap),
                                 Timber::e
                         )
-
         );
     }
 
-    @Override
-    public void getOrgUnits(String programId) {
-        compositeDisposable.add(eventInitialRepository.orgUnits(programId)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        orgUnits -> {
-                            this.orgUnits = orgUnits;
-                            view.addTree(OrgUnitUtils.renderTree(view.getContext(), orgUnits, false));
-                        },
-                        throwable -> view.renderError(throwable.getMessage())
-                ));
-    }
-
-
-    @Override
-    public void getEventSections(@NonNull String eventId) {
-        compositeDisposable.add(eventSummaryRepository.programStageSections(eventId)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        view::onEventSections,
-                        Timber::e
-                ));
-    }
-
-    @Override
-    public List<OrganisationUnitModel> getOrgUnits() {
-        return orgUnits;
-    }
-
-    @Override
-    public void onShareClick(View mView) {
+    public void onShareClick() {
         view.showQR();
     }
 
-    @Override
     public void deleteEvent(String trackedEntityInstance) {
         if (eventId != null) {
             eventInitialRepository.deleteEvent(eventId, trackedEntityInstance);
@@ -211,258 +202,208 @@ public class EventInitialPresenter implements EventInitialContract.Presenter {
             view.displayMessage(view.getContext().getString(R.string.delete_event_error));
     }
 
-    @Override
     public boolean isEnrollmentOpen() {
         return eventInitialRepository.isEnrollmentOpen();
     }
 
-    @Override
     public void getStageObjectStyle(String uid) {
-        compositeDisposable.add(metadataRepository.getObjectStyle(uid)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        objectStyleModel -> view.renderObjectStyle(objectStyleModel),
-                        Timber::e
-                )
+        compositeDisposable.add(
+                eventInitialRepository.getObjectStyle(uid)
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                objectStyle -> view.renderObjectStyle(objectStyle),
+                                Timber::e
+                        )
         );
     }
 
-    @Override
     public void getProgramStage(String programStageUid) {
-        compositeDisposable.add(eventInitialRepository.programStageWithId(programStageUid)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        programStageModel -> view.setProgramStage(programStageModel),
-                        throwable -> view.showProgramStageSelection()
-                ));
+        compositeDisposable.add(
+                eventInitialRepository.programStageWithId(programStageUid)
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                programStage -> view.setProgramStage(programStage),
+                                throwable -> view.showProgramStageSelection()
+                        )
+        );
     }
 
     private void getProgramStages(String programUid, String programStageUid) {
-
-        compositeDisposable.add((TextUtils.isEmpty(programStageId) ? eventInitialRepository.programStage(programUid) : eventInitialRepository.programStageWithId(programStageUid))
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        programStageModel -> view.setProgramStage(programStageModel),
-                        throwable -> view.showProgramStageSelection()
-                ));
+        compositeDisposable.add(
+                (DhisTextUtils.Companion.isEmpty(programStageId) ? eventInitialRepository.programStage(programUid)
+                        : eventInitialRepository.programStageWithId(programStageUid))
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                programStage -> view.setProgramStage(programStage),
+                                throwable -> view.showProgramStageSelection()
+                        )
+        );
     }
 
-    @Override
     public void onBackClick() {
+        setChangingCoordinates(false);
+        if (eventId != null)
+            analyticsHelper.setEvent(BACK_EVENT, CLICK, CREATE_EVENT);
         view.back();
     }
 
-    @Override
     public void createEvent(String enrollmentUid, String programStageModel, Date date, String orgUnitUid,
-                            String categoryOptionComboUid, String categoryOptionsUid,
-                            String latitude, String longitude, String trackedEntityInstance) {
-        if (programModel != null)
+                            String categoryOptionComboUid, String categoryOptionsUid, Geometry geometry, String trackedEntityInstance) {
+        if (program != null) {
+            preferences.setValue(Preference.CURRENT_ORG_UNIT, orgUnitUid);
             compositeDisposable.add(
-                    eventInitialRepository.createEvent(enrollmentUid, trackedEntityInstance, view.getContext(), programModel.uid(),
-                            programStageModel, date, orgUnitUid,
-                            categoryOptionComboUid, categoryOptionsUid,
-                            latitude, longitude)
-                            .subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(view::onEventCreated, t -> view.renderError(t.getMessage()))
+                    eventInitialRepository.createEvent(enrollmentUid, trackedEntityInstance, program.uid(), programStageModel, date, orgUnitUid, categoryOptionComboUid, categoryOptionsUid, geometry)
+                            .subscribeOn(schedulerProvider.io())
+                            .observeOn(schedulerProvider.ui())
+                            .subscribe(
+                                    view::onEventCreated,
+                                    t -> view.renderError(t.getMessage())
+                            )
             );
+        }
     }
 
-    @Override
-    public void createEventPermanent(String enrollmentUid, String trackedEntityInstanceUid, String programStageModel, Date date, String orgUnitUid,
-                                     String catComboUid, String catOptionUid,
-                                     String latitude, String longitude) {
-        compositeDisposable.add(
-                eventInitialRepository.createEvent(enrollmentUid, trackedEntityInstanceUid, view.getContext(),
-                        programModel.uid(), programStageModel, date, orgUnitUid,
-                        catComboUid, catOptionUid,
-                        latitude, longitude)
-                        .switchMap(
-                                eventId -> eventInitialRepository.updateTrackedEntityInstance(eventId, trackedEntityInstanceUid, orgUnitUid)
-                        )
-                        .distinctUntilChanged()
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(
-                                eventUid -> view.onEventCreated(eventUid),
-                                t -> view.renderError(t.getMessage())));
+    public void scheduleEventPermanent(String enrollmentUid, String trackedEntityInstanceUid, String programStageModel,
+                                       Date dueDate, String orgUnitUid, String categoryOptionComboUid, String categoryOptionsUid, Geometry geometry) {
+        if (program != null) {
+            preferences.setValue(Preference.CURRENT_ORG_UNIT, orgUnitUid);
+            compositeDisposable.add(
+                    eventInitialRepository.scheduleEvent(enrollmentUid, null, program.uid(), programStageModel, dueDate, orgUnitUid, categoryOptionComboUid, categoryOptionsUid, geometry)
+                            .subscribeOn(schedulerProvider.io())
+                            .observeOn(schedulerProvider.ui())
+                            .subscribe(
+                                    view::onEventCreated,
+                                    t -> view.renderError(t.getMessage())
+                            )
+            );
+        }
     }
 
-    @Override
     public void scheduleEvent(String enrollmentUid, String programStageModel, Date dueDate, String orgUnitUid,
-                              String categoryOptionComboUid, String categoryOptionsUid,
-                              String latitude, String longitude) {
-        if (programModel != null)
+                              String categoryOptionComboUid, String categoryOptionsUid, Geometry geometry) {
+        if (program != null) {
+            preferences.setValue(Preference.CURRENT_ORG_UNIT, orgUnitUid);
             compositeDisposable.add(
-                    eventInitialRepository.scheduleEvent(enrollmentUid, null, view.getContext(), programModel.uid(),
-                            programStageModel, dueDate, orgUnitUid,
-                            categoryOptionComboUid, categoryOptionsUid,
-                            latitude, longitude)
-                            .subscribeOn(Schedulers.io())
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .subscribe(view::onEventCreated, t -> view.renderError(t.getMessage()))
+                    eventInitialRepository.scheduleEvent(enrollmentUid, null, program.uid(), programStageModel, dueDate, orgUnitUid, categoryOptionComboUid, categoryOptionsUid, geometry)
+                            .subscribeOn(schedulerProvider.io())
+                            .observeOn(schedulerProvider.ui())
+                            .subscribe(
+                                    view::onEventCreated,
+                                    t -> view.renderError(t.getMessage())
+                            )
             );
+        }
     }
 
-    @Override
-    public void editEvent(String trackedEntityInstance, String programStageModel, String eventUid, String date, String orgUnitUid,
-                          String catComboUid, String catOptionCombo,
-                          String latitude, String longitude) {
+    public void editEvent(String trackedEntityInstance, String programStageModel, String eventUid, String date,
+                          String orgUnitUid, String catComboUid, String catOptionCombo, Geometry geometry) {
 
-        compositeDisposable.add(eventInitialRepository.editEvent(trackedEntityInstance, eventUid, date, orgUnitUid, catComboUid, catOptionCombo, latitude, longitude)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        (eventModel) -> view.onEventUpdated(eventModel.uid()),
-                        error -> displayMessage(error.getLocalizedMessage())
-
-                ));
+        compositeDisposable.add(
+                eventInitialRepository.editEvent(trackedEntityInstance, eventUid, date, orgUnitUid, catComboUid, catOptionCombo, geometry)
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                eventModel -> view.onEventUpdated(eventModel.uid()),
+                                error -> view.displayMessage(error.getLocalizedMessage())
+                        )
+        );
     }
 
-    @Override
     public void onDateClick(@Nullable DatePickerDialog.OnDateSetListener listener) {
         view.showDateDialog(listener);
     }
 
-    @Override
     public void onOrgUnitButtonClick() {
-//        view.openDrawer();
         view.showOrgUnitSelector(orgUnits);
     }
 
-    @Override
-    public void onLocationClick() {
-        if (ActivityCompat.checkSelfPermission(view.getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(view.getAbstractActivity(), Manifest.permission.ACCESS_COARSE_LOCATION)) {
-                // TODO CRIS:  Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-            } else {
-                ActivityCompat.requestPermissions(view.getAbstractActivity(),
-                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                        ACCESS_COARSE_LOCATION_PERMISSION_REQUEST);
-            }
-            return;
-        }
-        mFusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
-            if (location != null)
-                view.setLocation(location.getLatitude(), location.getLongitude());
-        });
+    public void onFieldChanged(CharSequence s, int start, int before, int count) {
+        view.checkActionButtonVisibility();
     }
 
-    @Override
-    public void onLocation2Click() {
-        Intent intent = new Intent(view.getContext(), MapSelectorActivity.class);
-        view.getAbstractActivity().startActivityForResult(intent, Constants.RQ_MAP_LOCATION);
-    }
-
-    @Override
-    public void getCatOption(String categoryOptionComboId) {
-        compositeDisposable.add(metadataRepository.getCategoryOptionComboWithId(categoryOptionComboId)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        catOption -> view.setCatOption(catOption),
-                        Timber::d)
-        );
-    }
-
-    @Override
     public void onDettach() {
         compositeDisposable.clear();
     }
 
-    @Override
     public void displayMessage(String message) {
         view.displayMessage(message);
     }
 
-    @Override
-    public void filterOrgUnits(String date) {
-        compositeDisposable.add(eventInitialRepository.filteredOrgUnits(date, programId)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        orgUnits -> {
-                            this.orgUnits = orgUnits;
-                            view.addTree(OrgUnitUtils.renderTree(view.getContext(), orgUnits, true));
-                        },
-                        throwable -> view.showNoOrgUnits()
-                ));
-    }
-
-    @Override
-    public void goToSummary() {
-        Bundle bundle = new Bundle();
-        bundle.putString("event_id", eventId);
-        bundle.putString("program_id", programModel.uid());
-        view.startActivity(EventSummaryActivity.class, bundle, false, false, null);
-    }
-
-    @Override
-    public void getSectionCompletion(@Nullable String sectionUid) {
-        Flowable<List<FieldViewModel>> fieldsFlowable = eventSummaryRepository.list(sectionUid, eventId);
-        Flowable<Result<RuleEffect>> ruleEffectFlowable = eventSummaryRepository.calculate().subscribeOn(schedulerProvider.computation())
+    private void getSectionCompletion() {
+        Flowable<List<FieldUiModel>> fieldsFlowable = eventSummaryRepository.list(eventId);
+        Flowable<Result<RuleEffect>> ruleEffectFlowable = eventSummaryRepository.calculate()
+                .subscribeOn(schedulerProvider.computation())
                 .onErrorReturn(throwable -> Result.failure(new Exception(throwable)));
 
         // Combining results of two repositories into a single stream.
-        Flowable<List<FieldViewModel>> viewModelsFlowable = Flowable.zip(fieldsFlowable, ruleEffectFlowable, this::applyEffects);
+        Flowable<List<FieldUiModel>> viewModelsFlowable = Flowable.zip(fieldsFlowable, ruleEffectFlowable,
+                this::applyEffects);
 
-        compositeDisposable.add(viewModelsFlowable
-                .subscribeOn(AndroidSchedulers.mainThread())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(view.showFields(sectionUid), throwable -> {
-                    throw new OnErrorNotImplementedException(throwable);
-                }));
+        compositeDisposable.add(
+                eventInitialRepository.eventSections()
+                        .flatMap(sectionList -> viewModelsFlowable
+                                .map(fields -> eventFieldMapper.map(
+                                        fields,
+                                        sectionList,
+                                        "",
+                                        new ArrayMap<>(),
+                                        new ArrayMap<>(),
+                                        new Pair<>(false, false)
+                                )))
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                sectionsAndFields -> view.updatePercentage(
+                                        eventFieldMapper.completedFieldsPercentage(),
+                                        eventFieldMapper.unsupportedFieldsPercentage()),
+                                Timber::d
+                        ));
     }
 
     @NonNull
-    private List<FieldViewModel> applyEffects(
-            @NonNull List<FieldViewModel> viewModels,
-            @NonNull Result<RuleEffect> calcResult) {
+    private List<FieldUiModel> applyEffects(@NonNull List<FieldUiModel> viewModels,
+                                              @NonNull Result<RuleEffect> calcResult) {
         if (calcResult.error() != null) {
-            calcResult.error().printStackTrace();
+            Timber.e(calcResult.error());
             return viewModels;
         }
 
-        Map<String, FieldViewModel> fieldViewModels = toMap(viewModels);
+        Map<String, FieldUiModel> fieldViewModels = toMap(viewModels);
         applyRuleEffects(fieldViewModels, calcResult);
 
         return new ArrayList<>(fieldViewModels.values());
     }
 
     @NonNull
-    private static Map<String, FieldViewModel> toMap(@NonNull List<FieldViewModel> fieldViewModels) {
-        Map<String, FieldViewModel> map = new LinkedHashMap<>();
-        for (FieldViewModel fieldViewModel : fieldViewModels) {
-            map.put(fieldViewModel.uid(), fieldViewModel);
+    private static Map<String, FieldUiModel> toMap(@NonNull List<FieldUiModel> fieldViewModels) {
+        Map<String, FieldUiModel> map = new LinkedHashMap<>();
+        for (FieldUiModel fieldViewModel : fieldViewModels) {
+            map.put(fieldViewModel.getUid(), fieldViewModel);
         }
         return map;
     }
 
-    private void applyRuleEffects(Map<String, FieldViewModel> fieldViewModels, Result<RuleEffect> calcResult) {
-        //TODO: APPLY RULE EFFECTS TO ALL MODELS
+    private void applyRuleEffects(Map<String, FieldUiModel> fieldViewModels, Result<RuleEffect> calcResult) {
+        // TODO: APPLY RULE EFFECTS TO ALL MODELS
         view.setHideSection(null);
         for (RuleEffect ruleEffect : calcResult.items()) {
             RuleAction ruleAction = ruleEffect.ruleAction();
             if (ruleAction instanceof RuleActionShowWarning) {
                 RuleActionShowWarning showWarning = (RuleActionShowWarning) ruleAction;
-                FieldViewModel model = fieldViewModels.get(showWarning.field());
+                FieldUiModel model = fieldViewModels.get(showWarning.field());
 
-                if (model != null && model instanceof EditTextViewModel) {
+                if (model instanceof EditTextViewModel) {
                     fieldViewModels.put(showWarning.field(),
                             ((EditTextViewModel) model).withWarning(showWarning.content()));
                 }
             } else if (ruleAction instanceof RuleActionShowError) {
                 RuleActionShowError showError = (RuleActionShowError) ruleAction;
-                FieldViewModel model = fieldViewModels.get(showError.field());
+                FieldUiModel model = fieldViewModels.get(showError.field());
 
-                if (model != null && model instanceof EditTextViewModel) {
+                if (model instanceof EditTextViewModel) {
                     fieldViewModels.put(showError.field(),
                             ((EditTextViewModel) model).withError(showError.content()));
                 }
@@ -476,17 +417,80 @@ public class EventInitialPresenter implements EventInitialContract.Presenter {
         }
     }
 
-    @Override
-    public void getEvents(String programUid, String enrollmentUid, String programStageUid, PeriodType periodType) {
+    public String getCatOptionCombo(String catComboUid, List<CategoryOptionCombo> categoryOptionCombos, List<CategoryOption> values) {
+        return eventInitialRepository.getCategoryOptionCombo(catComboUid, UidsHelper.getUidsList(values));
+    }
+
+    public Date getStageLastDate(String programStageUid, String enrollmentUid) {
+        return eventInitialRepository.getStageLastDate(programStageUid, enrollmentUid);
+    }
+
+    public void getEventOrgUnit(String ouUid) {
         compositeDisposable.add(
-                eventInitialRepository.getEventsFromProgramStage(programUid, enrollmentUid, programStageUid)
-                        .map(events -> DateUtils.getInstance().getNewDate(events, periodType))
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(date ->
-                                        view.setReportDate(date),
-                                Timber::d
+                eventInitialRepository.getOrganisationUnit(ouUid)
+                        .subscribeOn(schedulerProvider.io())
+                        .observeOn(schedulerProvider.ui())
+                        .subscribe(
+                                orgUnit -> view.setOrgUnit(orgUnit.uid(), orgUnit.displayName()),
+                                Timber::e
                         )
         );
+    }
+
+    public void initOrgunit(Date selectedDate) {
+        compositeDisposable.add(eventInitialRepository
+                .filteredOrgUnits(DateUtils.databaseDateFormat().format(selectedDate), programId, null)
+                .flatMap(filteredOrgUnits -> {
+                    if (getCurrentOrgUnit(null) != null) {
+                        String prevOrgUnitUid = getCurrentOrgUnit(null);
+                        for (OrganisationUnit ou : orgUnits) {
+                            if (ou.uid().equals(prevOrgUnitUid)) {
+                                return Observable.just(ou);
+                            }
+                        }
+                        return Observable.error(new NullPointerException("Orgunit is null"));
+
+                    } else if (orgUnits.size() == 1 && (view.eventcreateionType() == EventCreationType.ADDNEW
+                            || view.eventcreateionType() == EventCreationType.DEFAULT)) {
+                        return Observable.just(orgUnits.get(0));
+                    } else {
+                        return Observable.error(new NullPointerException("No org units available"));
+                    }
+                })
+                .subscribeOn(schedulerProvider.io())
+                .observeOn(schedulerProvider.ui())
+                .subscribe(
+                        orgUnit -> view.setInitialOrgUnit(orgUnit),
+                        throwable -> view.setInitialOrgUnit(null)
+                )
+        );
+    }
+
+    public CategoryOption getCatOption(String selectedOption) {
+        return eventInitialRepository.getCatOption(selectedOption);
+    }
+
+    public int catOptionSize(String uid) {
+        return eventInitialRepository.getCatOptionSize(uid);
+    }
+
+    public void setChangingCoordinates(boolean changingCoordinates) {
+        if (changingCoordinates) {
+            preferences.setValue(Preference.EVENT_COORDINATE_CHANGED, true);
+        } else {
+            preferences.removeValue(Preference.EVENT_COORDINATE_CHANGED);
+        }
+    }
+
+    public List<CategoryOption> getCatOptions(String categoryUid) {
+        return eventInitialRepository.getCategoryOptions(categoryUid);
+    }
+
+    public boolean getCompletionPercentageVisibility() {
+        return eventInitialRepository.showCompletionPercentage();
+    }
+
+    public void onEventCreated() {
+        matomoAnalyticsController.trackEvent(EVENT_LIST, CREATE_EVENT, CLICK);
     }
 }
