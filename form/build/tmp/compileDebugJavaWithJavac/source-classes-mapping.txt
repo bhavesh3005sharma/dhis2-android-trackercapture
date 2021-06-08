@@ -1,0 +1,14 @@
+org/dhis2/form/DataBinderMapperImpl.java
+ org.dhis2.form.DataBinderMapperImpl
+ org.dhis2.form.DataBinderMapperImpl$InnerBrLookup
+ org.dhis2.form.DataBinderMapperImpl$InnerLayoutIdLookup
+org/dhis2/form/DataBindingInfo.java
+ org.dhis2.form.DataBindingInfo
+androidx/databinding/library/baseAdapters/BR.java
+ androidx.databinding.library.baseAdapters.BR
+androidx/databinding/DataBindingComponent.java
+ androidx.databinding.DataBindingComponent
+org/dhis2/form/BuildConfig.java
+ org.dhis2.form.BuildConfig
+org/dhis2/form/BR.java
+ org.dhis2.form.BR

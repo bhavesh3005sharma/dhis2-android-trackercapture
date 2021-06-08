@@ -1,0 +1,45 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+	package
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:11-46
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:18:1-27:12
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:19:11-69
+application
+ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:21:5-25:19
+	android:supportsRtl
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:24:9-35
+	android:label
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:23:9-41
+	android:allowBackup
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml:22:9-35
+uses-sdk
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		ADDED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml
+		INJECTED from C:\android studio pfojects\Gsoc\TreckerCapture\tableview\src\main\AndroidManifest.xml

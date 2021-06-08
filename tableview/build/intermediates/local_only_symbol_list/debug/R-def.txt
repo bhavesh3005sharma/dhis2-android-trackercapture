@@ -1,0 +1,37 @@
+R_DEF: Internal format may change without notice
+local
+attr? column_header_height
+attr? row_header_width
+attr? selected_color
+attr? separator_color
+attr? shadow_color
+attr? show_horizontal_separator
+attr? show_vertical_separator
+attr? unselected_color
+color table_view_default_all_required_background_color
+color table_view_default_deactivated_background_color
+color table_view_default_disabled_background_color
+color table_view_default_header_background_color
+color table_view_default_mandatory_background_color
+color table_view_default_selected_background_color
+color table_view_default_separator_color
+color table_view_default_shadow_background_color
+color table_view_default_text_color
+color table_view_default_unselected_background_color
+color table_view_text
+color table_view_text_disabled
+dimen default_cell_height
+dimen default_column_header_height
+dimen default_row_header_width
+dimen small_column_header_height
+dimen small_row_header_width
+drawable cell_edit_bg
+drawable cell_line_divider
+drawable cell_text_color
+drawable outline_cell_bg
+id text
+integer default_item_cache_size
+layout item_table_cell
+layout item_table_header
+string app_name
+styleable TableView row_header_width column_header_height selected_color unselected_color shadow_color separator_color show_vertical_separator show_horizontal_separator

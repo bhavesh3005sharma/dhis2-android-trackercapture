@@ -1,0 +1,46 @@
+dhis2/org/analytics/charts/di/ChartsModule_ProvideDataElementToGraph$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideDataElementToGraph$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/ChartsModule_PeriodStepProvider$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_PeriodStepProvider$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/DaggerChartsComponent.java
+ dhis2.org.analytics.charts.di.DaggerChartsComponent
+ dhis2.org.analytics.charts.di.DaggerChartsComponent$1
+ dhis2.org.analytics.charts.di.DaggerChartsComponent$Builder
+dhis2/org/databinding/ItemSingleValueBindingImpl.java
+ dhis2.org.databinding.ItemSingleValueBindingImpl
+dhis2/org/analytics/charts/di/ChartsModule_ProvideChartRepository$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideChartRepository$dhis_android_analytics_dhisDebugFactory
+dhis2/org/BuildConfig.java
+ dhis2.org.BuildConfig
+dhis2/org/analytics/charts/DhisAnalyticCharts_Factory.java
+ dhis2.org.analytics.charts.DhisAnalyticCharts_Factory
+dhis2/org/analytics/charts/di/ChartsModule_ProvideAnalyticIndicatorMapper$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideAnalyticIndicatorMapper$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/ChartsModule_ChartCoordinatesProvider$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ChartCoordinatesProvider$dhis_android_analytics_dhisDebugFactory
+dhis2/org/databinding/ItemSingleValueBinding.java
+ dhis2.org.databinding.ItemSingleValueBinding
+androidx/databinding/library/baseAdapters/BR.java
+ androidx.databinding.library.baseAdapters.BR
+dhis2/org/DataBindingInfo.java
+ dhis2.org.DataBindingInfo
+dhis2/org/analytics/charts/di/ChartsModule_NutritionDataProvider$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_NutritionDataProvider$dhis_android_analytics_dhisDebugFactory
+dhis2/org/DataBinderMapperImpl.java
+ dhis2.org.DataBinderMapperImpl
+ dhis2.org.DataBinderMapperImpl$InnerBrLookup
+ dhis2.org.DataBinderMapperImpl$InnerLayoutIdLookup
+dhis2/org/analytics/charts/di/ChartsModule_ProvideAnalyticsSettingsToGraph$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideAnalyticsSettingsToGraph$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/ChartsModule_BindStorageFeatureImpl$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_BindStorageFeatureImpl$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/ChartsModule_ProvideAnalyticDataElementMapper$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideAnalyticDataElementMapper$dhis_android_analytics_dhisDebugFactory
+dhis2/org/BR.java
+ dhis2.org.BR
+androidx/databinding/DataBindingComponent.java
+ androidx.databinding.DataBindingComponent
+dhis2/org/analytics/charts/di/ChartsModule_ProvideIndicatorToGraph$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideIndicatorToGraph$dhis_android_analytics_dhisDebugFactory
+dhis2/org/analytics/charts/di/ChartsModule_ProvideAnalyticSettingsMapper$dhis_android_analytics_dhisDebugFactory.java
+ dhis2.org.analytics.charts.di.ChartsModule_ProvideAnalyticSettingsMapper$dhis_android_analytics_dhisDebugFactory

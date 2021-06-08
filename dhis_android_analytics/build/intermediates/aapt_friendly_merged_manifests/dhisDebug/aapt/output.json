@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "applicationId": "dhis2.org",
+  "variantType": "LIBRARY",
+  "elements": [
+    {
+      "outputType": {
+        "type": "AAPT_FRIENDLY_MERGED_MANIFESTS"
+      },
+      "apkData": {
+        "type": "MAIN",
+        "splits": [],
+        "versionCode": 1,
+        "versionName": "1.0",
+        "outputFile": "dhis_android_analytics-dhis-debug.aar",
+        "fullName": "dhisDebug",
+        "baseName": "dhis-debug",
+        "dirName": ""
+      },
+      "path": "AndroidManifest.xml",
+      "properties": {
+        "packageId": "dhis2.org",
+        "split": ""
+      }
+    }
+  ]
+}

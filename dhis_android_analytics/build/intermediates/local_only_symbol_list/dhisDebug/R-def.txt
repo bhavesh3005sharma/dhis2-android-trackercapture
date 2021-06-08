@@ -1,0 +1,17 @@
+R_DEF: Internal format may change without notice
+local
+color gray_e7e
+color textPrimary
+color textSecondary
+drawable ic_bar_chart
+drawable ic_info_outline
+drawable ic_line_chart
+drawable ic_single_value
+drawable ic_table_chart
+id descriptionLabel
+id guideline
+id indicator_legend
+id singleValue
+id singleValueTitle
+layout item_single_value
+string no_data
