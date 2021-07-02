@@ -2,9 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [ testing-bmgf ]
+    branches: [ testing-bmgf-1 ]
   pull_request:
-    branches: [  testing-bmgf ]
+    branches: [  testing-bmgf-1 ]
 
 jobs:
   build:
